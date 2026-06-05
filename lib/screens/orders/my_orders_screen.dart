@@ -10,6 +10,7 @@ class MyOrdersScreen extends StatelessWidget {
     return const PlaceholderFeatureScreen(
       title: 'Đơn hàng của tôi',
       icon: Icons.receipt_long_outlined,
+      subtitle: 'Theo dõi trạng thái giữ số, xác nhận và giao SIM.',
     );
   }
 }

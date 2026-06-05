@@ -10,6 +10,7 @@ class SimDetailScreen extends StatelessWidget {
     return const PlaceholderFeatureScreen(
       title: 'Chi tiết sim',
       icon: Icons.article_outlined,
+      subtitle: 'Thông tin phong thủy, ý nghĩa số và lịch sử giao dịch.',
     );
   }
 }
