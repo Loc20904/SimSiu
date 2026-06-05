@@ -10,6 +10,7 @@ class AdminScreen extends StatelessWidget {
     return const PlaceholderFeatureScreen(
       title: 'Quản trị',
       icon: Icons.admin_panel_settings_outlined,
+      subtitle: 'Quản lý kho SIM, đơn hàng và hiệu suất bán hàng.',
     );
   }
 }

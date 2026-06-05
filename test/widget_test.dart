@@ -14,7 +14,7 @@ void main() {
   testWidgets('opens splash then lets a customer register', (tester) async {
     await tester.pumpWidget(const SimDepApp());
 
-    expect(find.text('Sim Đẹp'), findsOneWidget);
+    expect(find.text('FBT Telecom'), findsOneWidget);
     expect(find.text('Đang kiểm tra phiên đăng nhập'), findsOneWidget);
 
     await tester.pump(const Duration(seconds: 2));
@@ -44,11 +44,19 @@ void main() {
       '123456',
     );
 
-    await tester.tap(find.byKey(const ValueKey('auth_submit_button')));
+    final submitButton = find.byKey(const ValueKey('auth_submit_button'));
+    await tester.ensureVisible(submitButton);
+    await tester.pumpAndSettle();
+    await tester.tap(submitButton);
     await tester.pumpAndSettle();
 
-    expect(find.text('Trang chủ'), findsOneWidget);
+    expect(find.text('FBT Telecom'), findsOneWidget);
     expect(find.text('Xin chào, Tran Van Test'), findsOneWidget);
+    expect(find.text('Tiện ích nhanh'), findsOneWidget);
+
+    await tester.drag(find.byType(ListView), const Offset(0, -420));
+    await tester.pumpAndSettle();
+
     expect(find.text('Loại sim phổ biến'), findsOneWidget);
     expect(find.text('Sim nổi bật'), findsOneWidget);
   });
@@ -58,7 +66,7 @@ void main() {
       MaterialApp(theme: AppTheme.light(), home: const SimListScreen()),
     );
 
-    expect(find.text('Danh sách sim'), findsOneWidget);
+    expect(find.text('Kho SIM đẹp'), findsOneWidget);
     expect(find.text('Nhà mạng'), findsOneWidget);
     expect(find.text('Loại sim'), findsOneWidget);
     expect(find.text('Khoảng giá'), findsOneWidget);

@@ -9,7 +9,8 @@ const mockSims = [
     price: 125000000,
     meaning: 'Dãy 8 tượng trưng cho phát tài, phát lộc.',
     status: SimStatus.available,
-    description: 'Số dễ nhớ, phù hợp kinh doanh và xây dựng thương hiệu.',
+    description:
+        'Số dễ nhớ, phù hợp kinh doanh và xây dựng thương hiệu cá nhân.',
   ),
   BeautifulSim(
     id: 'sim-002',
@@ -29,7 +30,8 @@ const mockSims = [
     price: 42000000,
     meaning: 'Tam hoa 3 tạo cảm giác chắc chắn, bền vững.',
     status: SimStatus.available,
-    description: 'Phù hợp chủ shop, tư vấn viên và người làm dịch vụ.',
+    description:
+        'Phù hợp chủ shop, tư vấn viên và người làm dịch vụ cần số dễ nhớ.',
   ),
   BeautifulSim(
     id: 'sim-004',

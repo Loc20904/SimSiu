@@ -10,6 +10,7 @@ class CheckoutScreen extends StatelessWidget {
     return const PlaceholderFeatureScreen(
       title: 'Đặt mua sim',
       icon: Icons.shopping_bag_outlined,
+      subtitle: 'Xác nhận thông tin nhận SIM và phương thức thanh toán.',
     );
   }
 }

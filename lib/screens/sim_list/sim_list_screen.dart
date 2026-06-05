@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/app_routes.dart';
 import '../../core/app_theme.dart';
 import '../../core/formatters.dart';
 import '../../data/mock_sim_data.dart';
@@ -128,10 +129,13 @@ class _SimListScreenState extends State<SimListScreen> {
   @override
   Widget build(BuildContext context) {
     final sims = _filteredSims;
+    final availableCount = sims
+        .where((sim) => sim.status == SimStatus.available)
+        .length;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Danh sách sim'),
+        title: const Text('Kho SIM đẹp'),
         actions: [
           IconButton(
             tooltip: 'Xóa lọc',
@@ -158,27 +162,18 @@ class _SimListScreenState extends State<SimListScreen> {
           controller: _scrollController,
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 92),
           children: [
-            TextField(
-              key: const ValueKey('sim_list_search_field'),
+            _SearchPanel(
               controller: _searchController,
-              keyboardType: TextInputType.phone,
-              decoration: InputDecoration(
-                labelText: 'Tìm kiếm sim theo số',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _query.isEmpty
-                    ? null
-                    : IconButton(
-                        tooltip: 'Xóa từ khóa',
-                        onPressed: () {
-                          setState(() {
-                            _query = '';
-                            _searchController.clear();
-                          });
-                        },
-                        icon: const Icon(Icons.close),
-                      ),
-              ),
+              query: _query,
+              resultCount: sims.length,
+              availableCount: availableCount,
               onChanged: (value) => setState(() => _query = value),
+              onClear: () {
+                setState(() {
+                  _query = '';
+                  _searchController.clear();
+                });
+              },
             ),
             const SizedBox(height: 12),
             _FilterPanel(
@@ -238,6 +233,78 @@ class _SimListScreenState extends State<SimListScreen> {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _SearchPanel extends StatelessWidget {
+  const _SearchPanel({
+    required this.controller,
+    required this.query,
+    required this.resultCount,
+    required this.availableCount,
+    required this.onChanged,
+    required this.onClear,
+  });
+
+  final TextEditingController controller;
+  final String query;
+  final int resultCount;
+  final int availableCount;
+  final ValueChanged<String> onChanged;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [AppPalette.red, AppPalette.redDark],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Chọn số hợp gu',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '$availableCount SIM còn hàng trong $resultCount kết quả',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.82),
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 14),
+          TextField(
+            key: const ValueKey('sim_list_search_field'),
+            controller: controller,
+            keyboardType: TextInputType.phone,
+            style: const TextStyle(fontWeight: FontWeight.w800),
+            decoration: InputDecoration(
+              hintText: 'Nhập số cần tìm',
+              prefixIcon: const Icon(Icons.search),
+              suffixIcon: query.isEmpty
+                  ? null
+                  : IconButton(
+                      tooltip: 'Xóa từ khóa',
+                      onPressed: onClear,
+                      icon: const Icon(Icons.close),
+                    ),
+            ),
+            onChanged: onChanged,
+          ),
+        ],
       ),
     );
   }
@@ -403,92 +470,121 @@ class _SimListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final statusColor = sim.status == SimStatus.available
-        ? AppPalette.teal
-        : AppPalette.danger;
+    final isAvailable = sim.status == SimStatus.available;
+    final statusColor = isAvailable ? AppPalette.teal : AppPalette.danger;
 
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 46,
-                  height: 46,
-                  decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        onTap: isAvailable
+            ? () => Navigator.of(context).pushNamed(AppRoutes.checkout)
+            : null,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 46,
+                    height: 46,
+                    decoration: BoxDecoration(
+                      color: statusColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(Icons.sim_card, color: statusColor),
                   ),
-                  child: Icon(Icons.sim_card, color: statusColor),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        sim.phoneNumber,
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(
-                              color: AppPalette.ink,
-                              fontWeight: FontWeight.w900,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          sim.phoneNumber,
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(
+                                color: AppPalette.ink,
+                                fontWeight: FontWeight.w900,
+                              ),
+                        ),
+                        const SizedBox(height: 7),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            _InfoPill(
+                              icon: Icons.cell_tower_outlined,
+                              label: sim.carrier,
                             ),
+                            _InfoPill(
+                              icon: Icons.category_outlined,
+                              label: sim.type,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  _StatusBadge(label: sim.status.label, color: statusColor),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 9,
                       ),
-                      const SizedBox(height: 7),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
+                      decoration: BoxDecoration(
+                        color: AppPalette.red.withValues(alpha: 0.06),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
                         children: [
-                          _InfoPill(
-                            icon: Icons.cell_tower_outlined,
-                            label: sim.carrier,
+                          const Icon(
+                            Icons.payments_outlined,
+                            color: AppPalette.red,
+                            size: 18,
                           ),
-                          _InfoPill(
-                            icon: Icons.category_outlined,
-                            label: sim.type,
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              formatCurrency(sim.price),
+                              textAlign: TextAlign.right,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: AppPalette.red,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
                           ),
                         ],
                       ),
-                    ],
-                  ),
-                ),
-                _StatusBadge(label: sim.status.label, color: statusColor),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-              decoration: BoxDecoration(
-                color: AppPalette.gold.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.payments_outlined,
-                    color: AppPalette.ink,
-                    size: 18,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      formatCurrency(sim.price),
-                      textAlign: TextAlign.right,
-                      style: const TextStyle(
-                        color: AppPalette.ink,
-                        fontWeight: FontWeight.w900,
-                      ),
                     ),
+                  ),
+                  const SizedBox(width: 10),
+                  OutlinedButton.icon(
+                    onPressed: isAvailable
+                        ? () => Navigator.of(
+                            context,
+                          ).pushNamed(AppRoutes.checkout)
+                        : null,
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(104, 42),
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                    ),
+                    icon: const Icon(Icons.shopping_bag_outlined, size: 18),
+                    label: const Text('Mua'),
                   ),
                 ],
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -506,7 +602,7 @@ class _InfoPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.04),
+        color: AppPalette.paper,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -559,17 +655,45 @@ class _EmptySimList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 36),
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppPalette.line),
+      ),
       child: Column(
         children: [
-          const Icon(Icons.manage_search, size: 48, color: AppPalette.muted),
-          const SizedBox(height: 10),
+          Container(
+            width: 58,
+            height: 58,
+            decoration: BoxDecoration(
+              color: AppPalette.red.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(
+              Icons.manage_search,
+              size: 32,
+              color: AppPalette.red,
+            ),
+          ),
+          const SizedBox(height: 12),
           Text(
             'Không tìm thấy sim phù hợp',
+            textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
               color: AppPalette.ink,
               fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Thử đổi nhà mạng, loại sim hoặc khoảng giá.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: AppPalette.muted,
+              fontWeight: FontWeight.w600,
+              height: 1.35,
             ),
           ),
         ],
