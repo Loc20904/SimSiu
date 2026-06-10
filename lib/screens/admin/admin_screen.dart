@@ -66,9 +66,20 @@ class _AdminScreenState extends State<AdminScreen> {
                           labelText: 'Số điện thoại',
                           hintText: 'VD: 0909 888 888',
                         ),
-                        validator: (v) => v == null || v.trim().isEmpty
-                            ? 'Vui lòng nhập số điện thoại'
-                            : null,
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) {
+                            return 'Vui lòng nhập số điện thoại';
+                          }
+                          final cleaned = v.replaceAll(' ', '');
+                          final isDigitsOnly = RegExp(r'^[0-9]+$').hasMatch(cleaned);
+                          if (!isDigitsOnly) {
+                            return 'Số điện thoại chỉ được chứa chữ số và khoảng trắng';
+                          }
+                          if (cleaned.length < 9 || cleaned.length > 11) {
+                            return 'Số điện thoại phải từ 9 đến 11 chữ số';
+                          }
+                          return null;
+                        },
                       ),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<String>(
@@ -114,10 +125,15 @@ class _AdminScreenState extends State<AdminScreen> {
                         keyboardType: TextInputType.number,
                         validator: (v) {
                           if (v == null || v.trim().isEmpty) {
-                            return 'Vui lòng nhập giá';
+                            return 'Vui lòng nhập giá bán';
                           }
-                          if (int.tryParse(v.replaceAll('.', '').replaceAll(' ', '')) == null) {
-                            return 'Giá bán phải là số nguyên';
+                          final raw = v.replaceAll('.', '').replaceAll(' ', '');
+                          final parsed = int.tryParse(raw);
+                          if (parsed == null) {
+                            return 'Giá bán phải là số nguyên hợp lệ';
+                          }
+                          if (parsed <= 0) {
+                            return 'Giá bán phải lớn hơn 0đ';
                           }
                           return null;
                         },
@@ -129,6 +145,15 @@ class _AdminScreenState extends State<AdminScreen> {
                           labelText: 'Ý nghĩa số',
                         ),
                         maxLines: 2,
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) {
+                            return 'Vui lòng nhập ý nghĩa của SIM';
+                          }
+                          if (v.trim().length < 5) {
+                            return 'Ý nghĩa SIM phải chứa ít nhất 5 ký tự';
+                          }
+                          return null;
+                        },
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
@@ -137,6 +162,15 @@ class _AdminScreenState extends State<AdminScreen> {
                           labelText: 'Mô tả chi tiết',
                         ),
                         maxLines: 2,
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) {
+                            return 'Vui lòng nhập mô tả chi tiết';
+                          }
+                          if (v.trim().length < 10) {
+                            return 'Mô tả chi tiết phải chứa ít nhất 10 ký tự';
+                          }
+                          return null;
+                        },
                       ),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<SimStatus>(
@@ -256,7 +290,7 @@ class _AdminScreenState extends State<AdminScreen> {
 
   @override
   Widget build(BuildContext context) {
- feat/booking_history
+ // feat/booking_history
     return DefaultTabController(
       length: 2,
       child: Scaffold(
