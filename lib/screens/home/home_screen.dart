@@ -83,6 +83,23 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text('FBT Telecom'),
         actions: [
+          if (user != null)
+            if (user.isAdmin)
+              IconButton(
+                tooltip: 'Quản trị',
+                onPressed: () {
+                  Navigator.of(context).pushNamed(AppRoutes.admin);
+                },
+                icon: const Icon(Icons.admin_panel_settings),
+              )
+            else
+              IconButton(
+                tooltip: 'Đơn hàng của tôi',
+                onPressed: () {
+                  Navigator.of(context).pushNamed(AppRoutes.myOrders);
+                },
+                icon: const Icon(Icons.receipt_long),
+              ),
           IconButton(
             tooltip: 'Thông báo',
             onPressed: _showSupportMessage,
