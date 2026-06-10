@@ -22,7 +22,7 @@ class SimDepApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'FBT Telecom',
+      title: 'Viettal',
       theme: AppTheme.light(),
       initialRoute: AppRoutes.splash,
       routes: {

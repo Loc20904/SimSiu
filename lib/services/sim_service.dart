@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart';
+
 import '../data/mock_sim_data.dart';
 import '../models/beautiful_sim.dart';
 
-class SimService {
+class SimService extends ChangeNotifier {
   SimService._();
 
   static final SimService instance = SimService._();
@@ -14,16 +16,22 @@ class SimService {
 
   void addSim(BeautifulSim sim) {
     _sims.add(sim);
+    notifyListeners();
   }
 
   void updateSim(BeautifulSim updatedSim) {
     final index = _sims.indexWhere((sim) => sim.id == updatedSim.id);
     if (index != -1) {
       _sims[index] = updatedSim;
+      notifyListeners();
     }
   }
 
   void deleteSim(String id) {
+    final beforeLength = _sims.length;
     _sims.removeWhere((sim) => sim.id == id);
+    if (_sims.length != beforeLength) {
+      notifyListeners();
+    }
   }
 }

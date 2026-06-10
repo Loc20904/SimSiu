@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import '../../core/app_routes.dart';
 import '../../core/app_theme.dart';
 import '../../core/formatters.dart';
-import '../../data/mock_sim_data.dart';
 import '../../models/beautiful_sim.dart';
 import '../../models/sim_list_filter.dart';
+import '../../services/sim_service.dart';
 
 class SimListScreen extends StatefulWidget {
   const SimListScreen({super.key});
@@ -20,6 +20,7 @@ class _SimListScreenState extends State<SimListScreen> {
   final _searchController = TextEditingController();
   final _scrollController = ScrollController();
   final _filterPanelKey = GlobalKey();
+  final _simService = SimService.instance;
 
   var _query = '';
   var _selectedCarrier = _allOption;
@@ -31,6 +32,7 @@ class _SimListScreenState extends State<SimListScreen> {
   @override
   void initState() {
     super.initState();
+    _simService.addListener(_handleSimDataChanged);
     _scrollController.addListener(_handleScroll);
   }
 
@@ -53,6 +55,7 @@ class _SimListScreenState extends State<SimListScreen> {
 
   @override
   void dispose() {
+    _simService.removeListener(_handleSimDataChanged);
     _scrollController
       ..removeListener(_handleScroll)
       ..dispose();
@@ -60,21 +63,37 @@ class _SimListScreenState extends State<SimListScreen> {
     super.dispose();
   }
 
+  void _handleSimDataChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  List<BeautifulSim> get _sims => _simService.getAllSims();
+
   List<String> get _carriers {
-    final values = mockSims.map((sim) => sim.carrier).toSet().toList()..sort();
-    return [_allOption, ...values];
+    final values = _sims.map((sim) => sim.carrier).toSet();
+    if (_selectedCarrier != _allOption) {
+      values.add(_selectedCarrier);
+    }
+    final sortedValues = values.toList()..sort();
+    return [_allOption, ...sortedValues];
   }
 
   List<String> get _types {
-    final values = mockSims.map((sim) => sim.type).toSet().toList()..sort();
-    return [_allOption, ...values];
+    final values = _sims.map((sim) => sim.type).toSet();
+    if (_selectedType != _allOption) {
+      values.add(_selectedType);
+    }
+    final sortedValues = values.toList()..sort();
+    return [_allOption, ...sortedValues];
   }
 
   List<BeautifulSim> get _filteredSims {
     final queryDigits = _query.replaceAll(RegExp(r'[^0-9]'), '');
     final queryText = _query.trim().toLowerCase();
 
-    return mockSims.where((sim) {
+    return _sims.where((sim) {
       final simDigits = sim.phoneNumber.replaceAll(RegExp(r'[^0-9]'), '');
       final matchesDigits =
           queryDigits.isNotEmpty && simDigits.contains(queryDigits);

@@ -5,16 +5,20 @@ import 'package:prm393project/core/app_theme.dart';
 import 'package:prm393project/main.dart';
 import 'package:prm393project/screens/sim_list/sim_list_screen.dart';
 import 'package:prm393project/services/auth_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  setUp(() {
-    AuthService.instance.signOut();
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUp(() async {
+    SharedPreferences.setMockInitialValues({});
+    await AuthService.instance.signOut();
   });
 
   testWidgets('opens splash then lets a customer register', (tester) async {
     await tester.pumpWidget(const SimDepApp());
 
-    expect(find.text('FBT Telecom'), findsOneWidget);
+    expect(find.text('Viettal'), findsOneWidget);
     expect(find.text('Đang kiểm tra phiên đăng nhập'), findsOneWidget);
 
     await tester.pump(const Duration(seconds: 2));
@@ -50,7 +54,7 @@ void main() {
     await tester.tap(submitButton);
     await tester.pumpAndSettle();
 
-    expect(find.text('FBT Telecom'), findsOneWidget);
+    expect(find.text('Viettal'), findsOneWidget);
     expect(find.text('Xin chào, Tran Van Test'), findsOneWidget);
     expect(find.text('Tiện ích nhanh'), findsOneWidget);
 
@@ -90,5 +94,22 @@ void main() {
 
     expect(find.text('0986 686 868'), findsOneWidget);
     expect(find.text('0909 888 888'), findsNothing);
+  });
+
+  testWidgets('restores saved login session after app restarts', (
+    tester,
+  ) async {
+    await AuthService.instance.signIn(
+      email: 'customer@simdep.vn',
+      password: '123456',
+    );
+
+    await tester.pumpWidget(const SimDepApp());
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Viettal'), findsOneWidget);
+    expect(find.text('Xin chào, Nguyễn Văn Khách'), findsOneWidget);
+    expect(find.text('Tiện ích nhanh'), findsOneWidget);
   });
 }

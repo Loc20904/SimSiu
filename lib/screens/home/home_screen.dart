@@ -3,10 +3,10 @@ import 'package:flutter/material.dart';
 import '../../core/app_routes.dart';
 import '../../core/app_theme.dart';
 import '../../core/formatters.dart';
-import '../../data/mock_sim_data.dart';
 import '../../models/beautiful_sim.dart';
 import '../../models/sim_list_filter.dart';
 import '../../services/auth_service.dart';
+import '../../services/sim_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -29,11 +29,25 @@ class _HomeScreenState extends State<HomeScreen> {
   ];
 
   final _searchController = TextEditingController();
+  final _simService = SimService.instance;
+
+  @override
+  void initState() {
+    super.initState();
+    _simService.addListener(_handleSimDataChanged);
+  }
 
   @override
   void dispose() {
+    _simService.removeListener(_handleSimDataChanged);
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _handleSimDataChanged() {
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   void _openSimList({String query = '', String? type}) {
@@ -70,18 +84,21 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final user = AuthService.instance.currentUser;
-    final availableSims = mockSims
+    final sims = _simService.getAllSims();
+    final availableSims = sims
         .where((sim) => sim.status == SimStatus.available)
         .toList();
     final featuredSims = availableSims.take(4).toList();
-    final lowestPrice = mockSims
-        .map((sim) => sim.price)
-        .reduce((current, next) => current < next ? current : next);
+    final lowestPrice = availableSims.isEmpty
+        ? null
+        : availableSims
+              .map((sim) => sim.price)
+              .reduce((current, next) => current < next ? current : next);
     final isAdmin = user?.isAdmin ?? false;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('FBT Telecom'),
+        title: const Text('Viettal'),
         actions: [
           if (user != null)
             if (user.isAdmin)
@@ -107,8 +124,11 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           IconButton(
             tooltip: 'Đăng xuất',
-            onPressed: () {
-              AuthService.instance.signOut();
+            onPressed: () async {
+              await AuthService.instance.signOut();
+              if (!context.mounted) {
+                return;
+              }
               Navigator.of(
                 context,
               ).pushNamedAndRemoveUntil(AppRoutes.auth, (route) => false);
@@ -260,7 +280,7 @@ class _AccountHero extends StatelessWidget {
   final String name;
   final String phone;
   final int availableCount;
-  final int lowestPrice;
+  final int? lowestPrice;
 
   @override
   Widget build(BuildContext context) {
@@ -353,7 +373,9 @@ class _AccountHero extends StatelessWidget {
               Expanded(
                 child: _HeroMetric(
                   icon: Icons.payments_outlined,
-                  label: 'Từ ${formatCurrency(lowestPrice)}',
+                  label: lowestPrice == null
+                      ? 'Đang cập nhật'
+                      : 'Từ ${formatCurrency(lowestPrice!)}',
                   caption: 'Giá tốt',
                 ),
               ),

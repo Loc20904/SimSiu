@@ -1,4 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
+
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/app_user.dart';
 
@@ -15,6 +18,7 @@ class AuthService {
   AuthService._();
 
   static final AuthService instance = AuthService._();
+  static const _currentUserKey = 'auth.currentUser';
 
   final List<_AuthAccount> _accounts = [
     const _AuthAccount(
@@ -45,6 +49,25 @@ class AuthService {
 
   Future<AppUser?> restoreSession() async {
     await Future<void>.delayed(const Duration(milliseconds: 1200));
+    if (_currentUser != null) {
+      return _currentUser;
+    }
+
+    final preferences = await SharedPreferences.getInstance();
+    final savedUser = preferences.getString(_currentUserKey);
+    if (savedUser == null) {
+      return null;
+    }
+
+    try {
+      final decoded = jsonDecode(savedUser);
+      final user = AppUser.fromJson(Map<String, Object?>.from(decoded as Map));
+      _currentUser = user;
+    } catch (_) {
+      await preferences.remove(_currentUserKey);
+      _currentUser = null;
+    }
+
     return _currentUser;
   }
 
@@ -60,6 +83,7 @@ class AuthService {
     }
 
     _currentUser = account.user;
+    await _saveSession(account.user);
     return account.user;
   }
 
@@ -85,11 +109,14 @@ class AuthService {
 
     _accounts.add(_AuthAccount(user: user, password: password));
     _currentUser = user;
+    await _saveSession(user);
     return user;
   }
 
-  void signOut() {
+  Future<void> signOut() async {
     _currentUser = null;
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.remove(_currentUserKey);
   }
 
   _AuthAccount? _findByEmail(String email) {
@@ -100,6 +127,11 @@ class AuthService {
       }
     }
     return null;
+  }
+
+  Future<void> _saveSession(AppUser user) async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString(_currentUserKey, jsonEncode(user.toJson()));
   }
 }
 

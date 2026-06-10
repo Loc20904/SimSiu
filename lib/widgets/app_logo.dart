@@ -35,7 +35,7 @@ class AppLogo extends StatelessWidget {
     );
 
     return Semantics(
-      label: 'FBT Telecom',
+      label: 'Viettal',
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -43,7 +43,7 @@ class AppLogo extends StatelessWidget {
           if (showText) ...[
             const SizedBox(height: 10),
             Text(
-              'FBT Telecom',
+              'Viettal',
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                 color: onDark ? Colors.white : null,
                 fontWeight: FontWeight.w900,
