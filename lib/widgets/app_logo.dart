@@ -1,51 +1,57 @@
 import 'package:flutter/material.dart';
 
-import '../core/app_theme.dart';
-
 class AppLogo extends StatelessWidget {
   const AppLogo({
     super.key,
-    this.size = 56,
-    this.showText = true,
-    this.alignment = MainAxisAlignment.center,
+    this.size = 180,
+    this.showText = false,
+    this.onDark = false,
   });
 
   final double size;
   final bool showText;
-  final MainAxisAlignment alignment;
+  final bool onDark;
 
   @override
   Widget build(BuildContext context) {
-    final titleStyle = Theme.of(context).textTheme.titleLarge?.copyWith(
-      color: AppPalette.ink,
-      fontWeight: FontWeight.w900,
+    final logo = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: onDark ? 0.16 : 0.07),
+            blurRadius: 22,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: SizedBox(
+        width: size,
+        height: size * 0.30,
+        child: Image.asset('assets/images/logo.png', fit: BoxFit.contain),
+      ),
     );
 
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      mainAxisAlignment: alignment,
-      children: [
-        Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            color: AppPalette.teal,
-            borderRadius: BorderRadius.circular(8),
-            boxShadow: [
-              BoxShadow(
-                color: AppPalette.teal.withValues(alpha: 0.18),
-                blurRadius: 22,
-                offset: const Offset(0, 10),
+    return Semantics(
+      label: 'FBT Telecom',
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          logo,
+          if (showText) ...[
+            const SizedBox(height: 10),
+            Text(
+              'FBT Telecom',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                color: onDark ? Colors.white : null,
+                fontWeight: FontWeight.w900,
               ),
-            ],
-          ),
-          child: Icon(Icons.sim_card, color: Colors.white, size: size * 0.48),
-        ),
-        if (showText) ...[
-          const SizedBox(width: 12),
-          Text('Sim Đẹp', style: titleStyle),
+            ),
+          ],
         ],
-      ],
+      ),
     );
   }
 }

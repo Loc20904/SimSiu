@@ -33,11 +33,17 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: ColoredBox(
-        color: AppPalette.paper,
+      body: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [AppPalette.red, AppPalette.redDark],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
         child: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(28, 32, 28, 28),
+            padding: const EdgeInsets.fromLTRB(28, 36, 28, 28),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -49,13 +55,16 @@ class _SplashScreenState extends State<SplashScreen> {
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: AppPalette.gold.withValues(alpha: 0.16),
+                      color: Colors.white.withValues(alpha: 0.14),
                       borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.18),
+                      ),
                     ),
                     child: const Text(
-                      'SIM SO DEP',
+                      'SIM SỐ ĐẸP',
                       style: TextStyle(
-                        color: AppPalette.ink,
+                        color: Colors.white,
                         fontSize: 12,
                         fontWeight: FontWeight.w900,
                         letterSpacing: 0,
@@ -64,24 +73,23 @@ class _SplashScreenState extends State<SplashScreen> {
                   ),
                 ),
                 const Spacer(),
-                const AppLogo(size: 78),
+                TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0.92, end: 1),
+                  duration: const Duration(milliseconds: 520),
+                  curve: Curves.easeOutCubic,
+                  builder: (context, value, child) {
+                    return Transform.scale(scale: value, child: child);
+                  },
+                  child: const AppLogo(size: 220, showText: true, onDark: true),
+                ),
                 const SizedBox(height: 18),
                 Text(
-                  'Kho sim số đẹp chọn lọc',
+                  'Kho SIM đẹp cho kinh doanh và cá nhân',
                   textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    color: AppPalette.ink,
-                    fontWeight: FontWeight.w900,
-                    height: 1.12,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  'Tìm sim dễ nhớ, đặt mua nhanh, thanh toán khi nhận hàng.',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppPalette.muted,
-                    height: 1.4,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    fontWeight: FontWeight.w700,
+                    height: 1.35,
                   ),
                 ),
                 const Spacer(),
@@ -89,16 +97,19 @@ class _SplashScreenState extends State<SplashScreen> {
                   child: SizedBox(
                     width: 30,
                     height: 30,
-                    child: CircularProgressIndicator(strokeWidth: 3),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 3,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 14),
-                const Text(
+                Text(
                   'Đang kiểm tra phiên đăng nhập',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: AppPalette.muted,
-                    fontWeight: FontWeight.w600,
+                    color: Colors.white.withValues(alpha: 0.82),
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ],

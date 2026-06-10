@@ -44,7 +44,7 @@ class AuthService {
   AppUser? get currentUser => _currentUser;
 
   Future<AppUser?> restoreSession() async {
-    await Future<void>.delayed(const Duration(milliseconds: 1600));
+    await Future<void>.delayed(const Duration(milliseconds: 1200));
     return _currentUser;
   }
 
