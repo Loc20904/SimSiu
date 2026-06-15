@@ -18,9 +18,7 @@ class MyOrdersScreen extends StatefulWidget {
 class _MyOrdersScreenState extends State<MyOrdersScreen> {
   BeautifulSim? _findSim(String simId) {
     try {
-      return SimService.instance
-          .getAllSims()
-          .firstWhere((s) => s.id == simId);
+      return SimService.instance.getAllSims().firstWhere((s) => s.id == simId);
     } catch (_) {
       return null;
     }
@@ -57,6 +55,21 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
 
     if (confirmed == true) {
       OrderService.instance.cancelOrder(order.id);
+      final sim = _findSim(order.simId);
+      if (sim != null && sim.status == SimStatus.sold) {
+        SimService.instance.updateSim(
+          BeautifulSim(
+            id: sim.id,
+            phoneNumber: sim.phoneNumber,
+            carrier: sim.carrier,
+            type: sim.type,
+            price: sim.price,
+            meaning: sim.meaning,
+            status: SimStatus.available,
+            description: sim.description,
+          ),
+        );
+      }
       setState(() {});
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -71,22 +84,18 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
 
   @override
   Widget build(BuildContext context) {
- // feat/booking_history
+    // feat/booking_history
     final user = AuthService.instance.currentUser;
     if (user == null) {
       return const Scaffold(
-        body: Center(
-          child: Text('Vui lòng đăng nhập để xem đơn hàng.'),
-        ),
+        body: Center(child: Text('Vui lòng đăng nhập để xem đơn hàng.')),
       );
     }
 
     final orders = OrderService.instance.getOrdersByUserId(user.id);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Đơn hàng của tôi'),
-      ),
+      appBar: AppBar(title: const Text('Đơn hàng của tôi')),
       body: orders.isEmpty
           ? Center(
               child: Column(
@@ -143,12 +152,14 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                                   vertical: 4,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: _getStatusColor(order.status)
-                                      .withValues(alpha: 0.12),
+                                  color: _getStatusColor(
+                                    order.status,
+                                  ).withValues(alpha: 0.12),
                                   borderRadius: BorderRadius.circular(6),
                                   border: Border.all(
-                                    color: _getStatusColor(order.status)
-                                        .withValues(alpha: 0.3),
+                                    color: _getStatusColor(
+                                      order.status,
+                                    ).withValues(alpha: 0.3),
                                     width: 1,
                                   ),
                                 ),
@@ -220,13 +231,22 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                             'Người nhận: ${order.receiverName} (${order.receiverPhone})',
                           ),
                           const SizedBox(height: 4),
-                          _buildDetailRow(Icons.place_outlined, 'Địa chỉ: ${order.address}'),
+                          _buildDetailRow(
+                            Icons.place_outlined,
+                            'Địa chỉ: ${order.address}',
+                          ),
                           if (order.note.isNotEmpty) ...[
                             const SizedBox(height: 4),
-                            _buildDetailRow(Icons.edit_note_outlined, 'Ghi chú: ${order.note}'),
+                            _buildDetailRow(
+                              Icons.edit_note_outlined,
+                              'Ghi chú: ${order.note}',
+                            ),
                           ],
                           const SizedBox(height: 4),
-                          _buildDetailRow(Icons.access_time, 'Thời gian đặt: $formattedDate'),
+                          _buildDetailRow(
+                            Icons.access_time,
+                            'Thời gian đặt: $formattedDate',
+                          ),
                           if (order.status == OrderStatus.pending) ...[
                             const SizedBox(height: 14),
                             Align(
@@ -235,7 +255,9 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                                 onPressed: () => _confirmCancelOrder(order),
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: AppPalette.danger,
-                                  side: const BorderSide(color: AppPalette.danger),
+                                  side: const BorderSide(
+                                    color: AppPalette.danger,
+                                  ),
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 16,
                                     vertical: 8,
@@ -273,7 +295,6 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
           ),
         ),
       ],
-
     );
   }
 }

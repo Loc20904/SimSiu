@@ -494,9 +494,9 @@ class _SimListItem extends StatelessWidget {
 
     return Card(
       child: InkWell(
-        onTap: isAvailable
-            ? () => Navigator.of(context).pushNamed(AppRoutes.checkout)
-            : null,
+        onTap: () => Navigator.of(
+          context,
+        ).pushNamed(AppRoutes.simDetail, arguments: sim.id),
         borderRadius: BorderRadius.circular(8),
         child: Padding(
           padding: const EdgeInsets.all(14),
@@ -588,17 +588,15 @@ class _SimListItem extends StatelessWidget {
                   ),
                   const SizedBox(width: 10),
                   OutlinedButton.icon(
-                    onPressed: isAvailable
-                        ? () => Navigator.of(
-                            context,
-                          ).pushNamed(AppRoutes.checkout)
-                        : null,
+                    onPressed: () => Navigator.of(
+                      context,
+                    ).pushNamed(AppRoutes.simDetail, arguments: sim.id),
                     style: OutlinedButton.styleFrom(
                       minimumSize: const Size(104, 42),
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                     ),
                     icon: const Icon(Icons.shopping_bag_outlined, size: 18),
-                    label: const Text('Mua'),
+                    label: const Text('Xem'),
                   ),
                 ],
               ),

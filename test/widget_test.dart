@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:prm393project/core/app_theme.dart';
+import 'package:prm393project/core/app_routes.dart';
 import 'package:prm393project/main.dart';
+import 'package:prm393project/screens/checkout/checkout_screen.dart';
+import 'package:prm393project/screens/orders/my_orders_screen.dart';
+import 'package:prm393project/screens/sim_detail/sim_detail_screen.dart';
 import 'package:prm393project/screens/sim_list/sim_list_screen.dart';
 import 'package:prm393project/services/auth_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -111,5 +115,62 @@ void main() {
     expect(find.text('Viettal'), findsOneWidget);
     expect(find.text('Xin chào, Nguyễn Văn Khách'), findsOneWidget);
     expect(find.text('Tiện ích nhanh'), findsOneWidget);
+  });
+
+  testWidgets('customer can view a SIM detail and place a COD order', (
+    tester,
+  ) async {
+    await AuthService.instance.signIn(
+      email: 'customer@simdep.vn',
+      password: '123456',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: const SimListScreen(),
+        routes: {
+          AppRoutes.simDetail: (_) => const SimDetailScreen(),
+          AppRoutes.checkout: (_) => const CheckoutScreen(),
+          AppRoutes.myOrders: (_) => const MyOrdersScreen(),
+        },
+      ),
+    );
+
+    await tester.tap(find.text('0909 888 888'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Chi tiết SIM'), findsOneWidget);
+    expect(find.text('Ý nghĩa SIM'), findsOneWidget);
+    expect(find.text('Mua SIM an tâm'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('buy_sim_button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Đặt mua SIM'), findsOneWidget);
+    expect(find.text('Thanh toán khi nhận hàng'), findsOneWidget);
+    final nameField = tester.widget<TextFormField>(
+      find.byKey(const ValueKey('receiver_name_field')),
+    );
+    expect(nameField.controller?.text, 'Nguyễn Văn Khách');
+
+    await tester.enterText(
+      find.byKey(const ValueKey('address_field')),
+      '123 Nguyễn Huệ, Quận 1, TP.HCM',
+    );
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('confirm_order_button')),
+    );
+    await tester.tap(find.byKey(const ValueKey('confirm_order_button')));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Đặt mua thành công'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('view_orders_button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Đơn hàng của tôi'), findsOneWidget);
+    expect(find.text('0909 888 888'), findsOneWidget);
+    expect(find.text('Chờ xử lý'), findsWidgets);
   });
 }
