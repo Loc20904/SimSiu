@@ -1,3 +1,4 @@
+// ignore_for_file: use_build_context_synchronously
 import 'package:flutter/material.dart';
 
 import '../../core/app_theme.dart';
@@ -18,9 +19,7 @@ class MyOrdersScreen extends StatefulWidget {
 class _MyOrdersScreenState extends State<MyOrdersScreen> {
   BeautifulSim? _findSim(String simId) {
     try {
-      return SimService.instance
-          .getAllSims()
-          .firstWhere((s) => s.id == simId);
+      return SimService.instance.getAllSims().firstWhere((s) => s.id == simId);
     } catch (_) {
       return null;
     }
@@ -36,6 +35,9 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
   }
 
   Future<void> _confirmCancelOrder(SimOrder order) async {
+    final navigator = Navigator.of(context);
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -56,12 +58,36 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
     );
 
     if (confirmed == true) {
-      OrderService.instance.cancelOrder(order.id);
-      setState(() {});
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+      if (!context.mounted) return;
+      // Hiển thị vòng chờ loading
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+
+      try {
+        await OrderService.instance.cancelOrder(order.id);
+        await SimService.instance.loadSims(); // Làm mới trạng thái sim ở các màn hình khác
+        
+        if (!mounted) return;
+        navigator.pop(); // Đóng vòng chờ loading
+
+        setState(() {});
+        scaffoldMessenger.showSnackBar(
           SnackBar(
             content: Text('Đã hủy đơn hàng ${order.id} thành công.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      } catch (e) {
+        if (!mounted) return;
+        navigator.pop(); // Đóng vòng chờ loading
+        scaffoldMessenger.showSnackBar(
+          SnackBar(
+            content: Text('Không thể hủy đơn hàng: $e'),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -71,22 +97,18 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
 
   @override
   Widget build(BuildContext context) {
- // feat/booking_history
+    // feat/booking_history
     final user = AuthService.instance.currentUser;
     if (user == null) {
       return const Scaffold(
-        body: Center(
-          child: Text('Vui lòng đăng nhập để xem đơn hàng.'),
-        ),
+        body: Center(child: Text('Vui lòng đăng nhập để xem đơn hàng.')),
       );
     }
 
     final orders = OrderService.instance.getOrdersByUserId(user.id);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Đơn hàng của tôi'),
-      ),
+      appBar: AppBar(title: const Text('Đơn hàng của tôi')),
       body: orders.isEmpty
           ? Center(
               child: Column(
@@ -143,12 +165,14 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                                   vertical: 4,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: _getStatusColor(order.status)
-                                      .withValues(alpha: 0.12),
+                                  color: _getStatusColor(
+                                    order.status,
+                                  ).withValues(alpha: 0.12),
                                   borderRadius: BorderRadius.circular(6),
                                   border: Border.all(
-                                    color: _getStatusColor(order.status)
-                                        .withValues(alpha: 0.3),
+                                    color: _getStatusColor(
+                                      order.status,
+                                    ).withValues(alpha: 0.3),
                                     width: 1,
                                   ),
                                 ),
@@ -220,13 +244,22 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                             'Người nhận: ${order.receiverName} (${order.receiverPhone})',
                           ),
                           const SizedBox(height: 4),
-                          _buildDetailRow(Icons.place_outlined, 'Địa chỉ: ${order.address}'),
+                          _buildDetailRow(
+                            Icons.place_outlined,
+                            'Địa chỉ: ${order.address}',
+                          ),
                           if (order.note.isNotEmpty) ...[
                             const SizedBox(height: 4),
-                            _buildDetailRow(Icons.edit_note_outlined, 'Ghi chú: ${order.note}'),
+                            _buildDetailRow(
+                              Icons.edit_note_outlined,
+                              'Ghi chú: ${order.note}',
+                            ),
                           ],
                           const SizedBox(height: 4),
-                          _buildDetailRow(Icons.access_time, 'Thời gian đặt: $formattedDate'),
+                          _buildDetailRow(
+                            Icons.access_time,
+                            'Thời gian đặt: $formattedDate',
+                          ),
                           if (order.status == OrderStatus.pending) ...[
                             const SizedBox(height: 14),
                             Align(
@@ -235,7 +268,9 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                                 onPressed: () => _confirmCancelOrder(order),
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: AppPalette.danger,
-                                  side: const BorderSide(color: AppPalette.danger),
+                                  side: const BorderSide(
+                                    color: AppPalette.danger,
+                                  ),
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 16,
                                     vertical: 8,
@@ -273,7 +308,6 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
           ),
         ),
       ],
-
     );
   }
 }

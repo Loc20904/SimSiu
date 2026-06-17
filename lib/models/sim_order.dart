@@ -35,4 +35,50 @@ class SimOrder {
   final OrderStatus status;
   final DateTime createdAt;
   final String note;
+
+  Map<String, Object?> toJson() {
+    return {
+      'id': id,
+      'userId': userId,
+      'simId': simId,
+      'receiverName': receiverName,
+      'receiverPhone': receiverPhone,
+      'address': address,
+      'totalPrice': totalPrice,
+      'status': status.name == 'pending'
+          ? 'Pending'
+          : status.name == 'confirmed'
+              ? 'Confirmed'
+              : status.name == 'completed'
+                  ? 'Completed'
+                  : 'Cancelled',
+      'createdAt': createdAt.toIso8601String(),
+      'note': note,
+    };
+  }
+
+  factory SimOrder.fromJson(Map<String, Object?> json) {
+    final statusStr = (json['status'] as String? ?? 'Pending').toLowerCase();
+    final status = switch (statusStr) {
+      'confirmed' => OrderStatus.confirmed,
+      'completed' => OrderStatus.completed,
+      'cancelled' => OrderStatus.cancelled,
+      _ => OrderStatus.pending,
+    };
+    final createdStr = json['createdAt'] as String?;
+    final createdAt = createdStr != null ? DateTime.parse(createdStr) : DateTime.now();
+
+    return SimOrder(
+      id: json['id'] as String? ?? '',
+      userId: json['userId'] as String? ?? '',
+      simId: json['simId'] as String? ?? '',
+      receiverName: json['receiverName'] as String? ?? '',
+      receiverPhone: json['receiverPhone'] as String? ?? '',
+      address: json['address'] as String? ?? '',
+      totalPrice: (json['totalPrice'] as num? ?? 0).toInt(),
+      status: status,
+      createdAt: createdAt.toLocal(),
+      note: json['note'] as String? ?? '',
+    );
+  }
 }

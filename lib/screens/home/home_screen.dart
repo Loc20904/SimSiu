@@ -213,8 +213,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 icon: Icons.shopping_bag_outlined,
                 label: 'Giữ số',
                 color: AppPalette.blue,
-                onTap: () =>
-                    Navigator.of(context).pushNamed(AppRoutes.checkout),
+                onTap: () => _openSimList(),
               ),
               _QuickAction(
                 icon: Icons.support_agent,
@@ -662,7 +661,9 @@ class _FeaturedSimCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: InkWell(
-        onTap: () => Navigator.of(context).pushNamed(AppRoutes.checkout),
+        onTap: () => Navigator.of(
+          context,
+        ).pushNamed(AppRoutes.simDetail, arguments: sim.id),
         borderRadius: BorderRadius.circular(8),
         child: Padding(
           padding: const EdgeInsets.all(14),
@@ -735,7 +736,9 @@ class _FeaturedSimCard extends StatelessWidget {
                   const SizedBox(width: 10),
                   FilledButton.icon(
                     onPressed: () {
-                      Navigator.of(context).pushNamed(AppRoutes.checkout);
+                      Navigator.of(
+                        context,
+                      ).pushNamed(AppRoutes.simDetail, arguments: sim.id);
                     },
                     style: FilledButton.styleFrom(
                       minimumSize: const Size(106, 44),

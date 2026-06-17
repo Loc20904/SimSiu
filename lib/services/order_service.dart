@@ -1,34 +1,11 @@
-import '../models/sim_order.dart';
+import 'package:flutter/foundation.dart';
 
-class OrderService {
-  OrderService._() {
-    // Add mock orders for user-customer
-    _orders.addAll([
-      SimOrder(
-        id: 'ORD-1001',
-        userId: 'user-customer',
-        simId: 'sim-002',
-        receiverName: 'Nguyễn Văn Khách',
-        receiverPhone: '0909000000',
-        address: 'Thành phố Hồ Chí Minh',
-        totalPrice: 28500000,
-        status: OrderStatus.pending,
-        createdAt: DateTime.now().subtract(const Duration(hours: 4)),
-        note: 'Giao hàng giờ hành chính',
-      ),
-      SimOrder(
-        id: 'ORD-1002',
-        userId: 'user-customer',
-        simId: 'sim-004',
-        receiverName: 'Nguyễn Văn Khách',
-        receiverPhone: '0909000000',
-        address: 'Hà Nội',
-        totalPrice: 9600000,
-        status: OrderStatus.completed,
-        createdAt: DateTime.now().subtract(const Duration(days: 2)),
-      ),
-    ]);
-  }
+import '../models/sim_order.dart';
+import 'api_client.dart';
+import 'auth_service.dart';
+
+class OrderService extends ChangeNotifier {
+  OrderService._();
 
   static final OrderService instance = OrderService._();
 
@@ -43,45 +20,68 @@ class OrderService {
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
 
-  void createOrder(SimOrder order) {
-    _orders.add(order);
-  }
+  Future<void> loadOrders() async {
+    try {
+      final user = AuthService.instance.currentUser;
+      if (user == null) {
+        _orders.clear();
+        notifyListeners();
+        return;
+      }
 
-  void updateOrderStatus(String orderId, OrderStatus status) {
-    final index = _orders.indexWhere((order) => order.id == orderId);
-    if (index != -1) {
-      final old = _orders[index];
-      _orders[index] = SimOrder(
-        id: old.id,
-        userId: old.userId,
-        simId: old.simId,
-        receiverName: old.receiverName,
-        receiverPhone: old.receiverPhone,
-        address: old.address,
-        totalPrice: old.totalPrice,
-        status: status,
-        createdAt: old.createdAt,
-        note: old.note,
-      );
+      final String path = user.isAdmin ? '/orders' : '/orders/user/${user.id}';
+      final List<dynamic> jsonList = await ApiClient.instance.get(path);
+
+      _orders.clear();
+      for (final item in jsonList) {
+        if (item is Map<String, dynamic>) {
+          _orders.add(SimOrder.fromJson(Map<String, Object?>.from(item)));
+        }
+      }
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error loading orders: $e');
+      rethrow;
     }
   }
 
-  void cancelOrder(String orderId) {
-    final index = _orders.indexWhere((order) => order.id == orderId);
-    if (index != -1 && _orders[index].status == OrderStatus.pending) {
-      final old = _orders[index];
-      _orders[index] = SimOrder(
-        id: old.id,
-        userId: old.userId,
-        simId: old.simId,
-        receiverName: old.receiverName,
-        receiverPhone: old.receiverPhone,
-        address: old.address,
-        totalPrice: old.totalPrice,
-        status: OrderStatus.cancelled,
-        createdAt: old.createdAt,
-        note: old.note,
-      );
+  Future<void> createOrder(SimOrder order) async {
+    try {
+      await ApiClient.instance.post('/orders', order.toJson());
+      await loadOrders();
+    } catch (e) {
+      debugPrint('Error creating order: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> updateOrderStatus(String orderId, OrderStatus status) async {
+    try {
+      final statusStr = status.name == 'pending'
+          ? 'Pending'
+          : status.name == 'confirmed'
+              ? 'Confirmed'
+              : status.name == 'completed'
+                  ? 'Completed'
+                  : 'Cancelled';
+
+      await ApiClient.instance.put('/orders/$orderId/status', {
+        'status': statusStr,
+      });
+      await loadOrders();
+    } catch (e) {
+      debugPrint('Error updating order status: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> cancelOrder(String orderId) async {
+    try {
+      await ApiClient.instance.post('/orders/$orderId/cancel', null);
+      await loadOrders();
+    } catch (e) {
+      debugPrint('Error cancelling order: $e');
+      rethrow;
     }
   }
 }
