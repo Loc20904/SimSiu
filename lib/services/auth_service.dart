@@ -1,9 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/api_config.dart';
 import '../models/app_user.dart';
+import 'order_service.dart';
 import 'api_client.dart';
 
 class AuthException implements Exception {
@@ -23,10 +26,23 @@ class AuthService {
   static const _tokenKey = 'auth.token';
 
   AppUser? _currentUser;
+  String? _token;
 
   AppUser? get currentUser => _currentUser;
+  String? get token => _token;
+
+  Map<String, String> get authHeaders {
+    return {
+      'Content-Type': 'application/json',
+      if (_token != null) 'Authorization': 'Bearer $_token',
+    };
+  }
 
   Future<AppUser?> restoreSession() async {
+    if (_currentUser != null) {
+      return _currentUser;
+    }
+
     final preferences = await SharedPreferences.getInstance();
     final token = preferences.getString(_tokenKey);
     final savedUser = preferences.getString(_currentUserKey);

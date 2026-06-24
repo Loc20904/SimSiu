@@ -1,10 +1,15 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 
+import '../core/api_config.dart';
 import '../models/sim_order.dart';
-import 'api_client.dart';
 import 'auth_service.dart';
+import 'sim_service.dart';
 
-class OrderService extends ChangeNotifier {
+class OrderService {
   OrderService._();
 
   static final OrderService instance = OrderService._();
@@ -20,68 +25,140 @@ class OrderService extends ChangeNotifier {
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
 
-  Future<void> loadOrders() async {
+  void clearOrders() {
+    _orders.clear();
+  }
+
+  Future<void> fetchOrders({String? userId}) async {
     try {
       final user = AuthService.instance.currentUser;
-      if (user == null) {
+      if (user == null) return;
+
+      final String url;
+      if (user.isAdmin) {
+        url = '${ApiConfig.baseUrl}/orders';
+      } else {
+        final idToFetch = userId ?? user.id;
+        url = '${ApiConfig.baseUrl}/orders/user/$idToFetch';
+      }
+
+      final response = await http.get(
+        Uri.parse(url),
+        headers: AuthService.instance.authHeaders,
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
         _orders.clear();
-        notifyListeners();
-        return;
+        _orders.addAll(data.map((item) => SimOrder.fromJson(item)));
+      } else {
+        debugPrint('Failed to load orders: ${response.statusCode}');
       }
-
-      final String path = user.isAdmin ? '/orders' : '/orders/user/${user.id}';
-      final List<dynamic> jsonList = await ApiClient.instance.get(path);
-
-      _orders.clear();
-      for (final item in jsonList) {
-        if (item is Map<String, dynamic>) {
-          _orders.add(SimOrder.fromJson(Map<String, Object?>.from(item)));
-        }
-      }
-      notifyListeners();
     } catch (e) {
-      debugPrint('Error loading orders: $e');
-      rethrow;
+      debugPrint('Error fetching orders: $e');
     }
   }
 
   Future<void> createOrder(SimOrder order) async {
+    // Optimistic local update
+    _orders.add(order);
+
     try {
-      await ApiClient.instance.post('/orders', order.toJson());
-      await loadOrders();
+      final response = await http.post(
+        Uri.parse('${ApiConfig.baseUrl}/orders'),
+        headers: AuthService.instance.authHeaders,
+        body: jsonEncode(order.toJson()),
+      );
+
+      if (response.statusCode == 201) {
+        final created = SimOrder.fromJson(jsonDecode(response.body));
+        
+        // Update local item with server values (like ID or createdAt if server modified them)
+        final index = _orders.indexWhere((o) => o.id == order.id);
+        if (index != -1) {
+          _orders[index] = created;
+        }
+        
+        // Refresh SIMs from backend to reflect the sold status
+        await SimService.instance.fetchSims();
+      } else {
+        debugPrint('Failed to create order on server: ${response.statusCode}');
+      }
     } catch (e) {
-      debugPrint('Error creating order: $e');
-      rethrow;
+      debugPrint('Error creating order on server: $e');
     }
   }
 
-  Future<void> updateOrderStatus(String orderId, OrderStatus status) async {
-    try {
-      final statusStr = status.name == 'pending'
-          ? 'Pending'
-          : status.name == 'confirmed'
-              ? 'Confirmed'
-              : status.name == 'completed'
-                  ? 'Completed'
-                  : 'Cancelled';
+  Future<void> updateOrderStatus(String orderId,  OrderStatus status) async {
+    // Optimistic local update
+    final index = _orders.indexWhere((order) => order.id == orderId);
+    if (index != -1) {
+      final old = _orders[index];
+      _orders[index] = SimOrder(
+        id: old.id,
+        userId: old.userId,
+        simId: old.simId,
+        receiverName: old.receiverName,
+        receiverPhone: old.receiverPhone,
+        address: old.address,
+        totalPrice: old.totalPrice,
+        status: status,
+        createdAt: old.createdAt,
+        note: old.note,
+      );
+    }
 
-      await ApiClient.instance.put('/orders/$orderId/status', {
-        'status': statusStr,
-      });
-      await loadOrders();
+    try {
+      final response = await http.put(
+        Uri.parse('${ApiConfig.baseUrl}/orders/$orderId/status'),
+        headers: AuthService.instance.authHeaders,
+        body: jsonEncode({'status': status.name}),
+      );
+
+      if (response.statusCode == 204 || response.statusCode == 200) {
+        // Refresh SIM list in case SIM status changed
+        await SimService.instance.fetchSims();
+      } else {
+        debugPrint('Failed to update order status on server: ${response.statusCode}');
+      }
     } catch (e) {
-      debugPrint('Error updating order status: $e');
-      rethrow;
+      debugPrint('Error updating order status on server: $e');
     }
   }
 
   Future<void> cancelOrder(String orderId) async {
+    // Optimistic local update
+    final index = _orders.indexWhere((order) => order.id == orderId);
+    if (index != -1 && _orders[index].status == OrderStatus.pending) {
+      final old = _orders[index];
+      _orders[index] = SimOrder(
+        id: old.id,
+        userId: old.userId,
+        simId: old.simId,
+        receiverName: old.receiverName,
+        receiverPhone: old.receiverPhone,
+        address: old.address,
+        totalPrice: old.totalPrice,
+        status: OrderStatus.cancelled,
+        createdAt: old.createdAt,
+        note: old.note,
+      );
+    }
+
     try {
-      await ApiClient.instance.post('/orders/$orderId/cancel', null);
-      await loadOrders();
+      final response = await http.post(
+        Uri.parse('${ApiConfig.baseUrl}/orders/$orderId/cancel'),
+        headers: AuthService.instance.authHeaders,
+      );
+
+      if (response.statusCode == 204 || response.statusCode == 200) {
+        // Refresh SIM list in case SIM status was restored
+        await SimService.instance.fetchSims();
+      } else {
+        debugPrint('Failed to cancel order on server: ${response.statusCode}');
+      }
     } catch (e) {
-      debugPrint('Error cancelling order: $e');
-      rethrow;
+      debugPrint('Error cancelling order on server: $e');
     }
   }
 }
