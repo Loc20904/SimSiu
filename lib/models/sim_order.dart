@@ -35,4 +35,39 @@ class SimOrder {
   final OrderStatus status;
   final DateTime createdAt;
   final String note;
+
+  Map<String, Object?> toJson() {
+    return {
+      'id': id,
+      'userId': userId,
+      'simId': simId,
+      'receiverName': receiverName,
+      'receiverPhone': receiverPhone,
+      'address': address,
+      'totalPrice': totalPrice,
+      'status': status.name,
+      'createdAt': createdAt.toIso8601String(),
+      'note': note,
+    };
+  }
+
+  factory SimOrder.fromJson(Map<String, Object?> json) {
+    final statusStr = json['status'] as String? ?? 'pending';
+    final createdAtStr = json['createdAt'] as String;
+    return SimOrder(
+      id: json['id'] as String,
+      userId: json['userId'] as String,
+      simId: json['simId'] as String,
+      receiverName: json['receiverName'] as String,
+      receiverPhone: json['receiverPhone'] as String,
+      address: json['address'] as String,
+      totalPrice: json['totalPrice'] as int,
+      status: OrderStatus.values.firstWhere(
+        (e) => e.name.toLowerCase() == statusStr.toLowerCase(),
+        orElse: () => OrderStatus.pending,
+      ),
+      createdAt: DateTime.parse(createdAtStr).toLocal(),
+      note: json['note'] as String? ?? '',
+    );
+  }
 }

@@ -10,6 +10,7 @@ import 'screens/orders/my_orders_screen.dart';
 import 'screens/sim_detail/sim_detail_screen.dart';
 import 'screens/sim_list/sim_list_screen.dart';
 import 'screens/splash/splash_screen.dart';
+import 'screens/chat/chat_screen.dart';
 
 void main() {
   runApp(const SimDepApp());
@@ -20,21 +21,29 @@ class SimDepApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Viettal',
-      theme: AppTheme.light(),
-      initialRoute: AppRoutes.splash,
-      routes: {
-        AppRoutes.splash: (_) => const SplashScreen(),
-        AppRoutes.auth: (_) => const LoginRegisterScreen(),
-        AppRoutes.home: (_) => const HomeScreen(),
-        AppRoutes.simList: (_) => const SimListScreen(),
-        AppRoutes.simDetail: (_) => const SimDetailScreen(),
-        AppRoutes.checkout: (_) => const CheckoutScreen(),
-        AppRoutes.myOrders: (_) => const MyOrdersScreen(),
-        AppRoutes.admin: (_) => const AdminScreen(),
+    // Bọc GestureDetector ở đây để áp dụng cho TẤT CẢ các màn hình trong ứng dụng
+    return GestureDetector(
+      onTap: () {
+        // Lệnh này giúp xóa focus hiện tại và ẩn bàn phím đi
+        FocusManager.instance.primaryFocus?.unfocus();
       },
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: 'Viettal',
+        theme: AppTheme.light(),
+        initialRoute: AppRoutes.splash,
+        routes: {
+          AppRoutes.splash: (_) => const SplashScreen(),
+          AppRoutes.auth: (_) => const LoginRegisterScreen(),
+          AppRoutes.home: (_) => const HomeScreen(),
+          AppRoutes.simList: (_) => const SimListScreen(),
+          AppRoutes.simDetail: (_) => const SimDetailScreen(),
+          AppRoutes.checkout: (_) => const CheckoutScreen(),
+          AppRoutes.myOrders: (_) => const MyOrdersScreen(),
+          AppRoutes.admin: (_) => const AdminScreen(),
+          AppRoutes.chat: (_) => const ChatScreen(),
+        },
+      ),
     );
   }
 }

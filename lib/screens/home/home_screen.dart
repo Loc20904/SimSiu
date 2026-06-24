@@ -217,9 +217,9 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               _QuickAction(
                 icon: Icons.support_agent,
-                label: 'Tư vấn',
+                label: 'Tư vấn AI',
                 color: AppPalette.teal,
-                onTap: _showSupportMessage,
+                onTap: () => Navigator.of(context).pushNamed(AppRoutes.chat),
               ),
             ],
           ),
