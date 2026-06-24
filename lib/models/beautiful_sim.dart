@@ -38,24 +38,21 @@ class BeautifulSim {
       'type': type,
       'price': price,
       'meaning': meaning,
-      'status': status.name,
+      'status': status.name == 'available' ? 'Available' : 'Sold',
       'description': description,
     };
   }
 
   factory BeautifulSim.fromJson(Map<String, Object?> json) {
-    final statusStr = json['status'] as String? ?? 'available';
+    final statusStr = (json['status'] as String? ?? 'Available').toLowerCase();
     return BeautifulSim(
-      id: json['id'] as String,
-      phoneNumber: json['phoneNumber'] as String,
-      carrier: json['carrier'] as String,
-      type: json['type'] as String,
-      price: json['price'] as int,
+      id: json['id'] as String? ?? '',
+      phoneNumber: json['phoneNumber'] as String? ?? '',
+      carrier: json['carrier'] as String? ?? '',
+      type: json['type'] as String? ?? '',
+      price: (json['price'] as num? ?? 0).toInt(),
       meaning: json['meaning'] as String? ?? '',
-      status: SimStatus.values.firstWhere(
-        (e) => e.name.toLowerCase() == statusStr.toLowerCase(),
-        orElse: () => SimStatus.available,
-      ),
+      status: statusStr == 'available' ? SimStatus.available : SimStatus.sold,
       description: json['description'] as String? ?? '',
     );
   }

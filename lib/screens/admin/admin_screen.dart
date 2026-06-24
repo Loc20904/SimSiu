@@ -1,3 +1,4 @@
+// ignore_for_file: use_build_context_synchronously
 import 'package:flutter/material.dart';
 
 import '../../core/app_theme.dart';
@@ -198,50 +199,75 @@ class _AdminScreenState extends State<AdminScreen> {
                   child: const Text('Hủy'),
                 ),
                 TextButton(
-                  onPressed: () {
+                  onPressed: () async {
                     if (formKey.currentState?.validate() ?? false) {
                       final rawPrice = int.parse(
                         priceController.text.replaceAll('.', '').replaceAll(' ', ''),
                       );
 
-                      if (isEdit) {
-                        final updated = BeautifulSim(
-                          id: sim.id,
-                          phoneNumber: phoneController.text.trim(),
-                          carrier: selectedCarrier,
-                          type: selectedType,
-                          price: rawPrice,
-                          meaning: meaningController.text.trim(),
-                          status: selectedStatus,
-                          description: descController.text.trim(),
-                        );
-                        SimService.instance.updateSim(updated);
-                      } else {
-                        final newSim = BeautifulSim(
-                          id: 'sim-${DateTime.now().millisecondsSinceEpoch}',
-                          phoneNumber: phoneController.text.trim(),
-                          carrier: selectedCarrier,
-                          type: selectedType,
-                          price: rawPrice,
-                          meaning: meaningController.text.trim(),
-                          status: selectedStatus,
-                          description: descController.text.trim(),
-                        );
-                        SimService.instance.addSim(newSim);
-                      }
+                      final navigator = Navigator.of(context);
+                      final scaffoldMessenger = ScaffoldMessenger.of(context);
 
-                      Navigator.of(context).pop();
-                      setState(() {});
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            isEdit
-                                ? 'Đã cập nhật thông tin SIM thành công.'
-                                : 'Đã thêm SIM mới thành công.',
-                          ),
-                          behavior: SnackBarBehavior.floating,
+                      showDialog<void>(
+                        context: context,
+                        barrierDismissible: false,
+                        builder: (context) => const Center(
+                          child: CircularProgressIndicator(),
                         ),
                       );
+
+                      try {
+                        if (isEdit) {
+                          final updated = BeautifulSim(
+                            id: sim.id,
+                            phoneNumber: phoneController.text.trim(),
+                            carrier: selectedCarrier,
+                            type: selectedType,
+                            price: rawPrice,
+                            meaning: meaningController.text.trim(),
+                            status: selectedStatus,
+                            description: descController.text.trim(),
+                          );
+                          await SimService.instance.updateSim(updated);
+                        } else {
+                          final newSim = BeautifulSim(
+                            id: 'sim-${DateTime.now().millisecondsSinceEpoch}',
+                            phoneNumber: phoneController.text.trim(),
+                            carrier: selectedCarrier,
+                            type: selectedType,
+                            price: rawPrice,
+                            meaning: meaningController.text.trim(),
+                            status: selectedStatus,
+                            description: descController.text.trim(),
+                          );
+                          await SimService.instance.addSim(newSim);
+                        }
+
+                        if (!mounted) return;
+                        navigator.pop(); // Đóng loading
+                        navigator.pop(); // Đóng dialog Add/Edit
+
+                        setState(() {});
+                        scaffoldMessenger.showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              isEdit
+                                  ? 'Đã cập nhật thông tin SIM thành công.'
+                                  : 'Đã thêm SIM mới thành công.',
+                            ),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      } catch (e) {
+                        if (!mounted) return;
+                        navigator.pop(); // Đóng loading
+                        scaffoldMessenger.showSnackBar(
+                          SnackBar(
+                            content: Text('Thao tác thất bại: $e'),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      }
                     }
                   },
                   child: const Text('Lưu'),
@@ -275,12 +301,37 @@ class _AdminScreenState extends State<AdminScreen> {
     );
 
     if (confirmed == true) {
-      SimService.instance.deleteSim(sim.id);
-      setState(() {});
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+      if (!context.mounted) return;
+      final navigator = Navigator.of(context);
+      final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+
+      try {
+        await SimService.instance.deleteSim(sim.id);
+        
+        if (!mounted) return;
+        navigator.pop(); // Đóng loading
+
+        setState(() {});
+        scaffoldMessenger.showSnackBar(
           SnackBar(
             content: Text('Đã xóa SIM số ${sim.phoneNumber} khỏi hệ thống.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      } catch (e) {
+        if (!mounted) return;
+        navigator.pop(); // Đóng loading
+        scaffoldMessenger.showSnackBar(
+          SnackBar(
+            content: Text('Không thể xóa SIM: $e'),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -570,53 +621,46 @@ class _AdminScreenState extends State<AdminScreen> {
                               child: Text(s.label),
                             );
                           }).toList(),
-                          onChanged: (newStatus) {
+                           onChanged: (newStatus) async {
                             if (newStatus != null) {
-                              OrderService.instance.updateOrderStatus(order.id, newStatus);
+                              final navigator = Navigator.of(context);
+                              final scaffoldMessenger = ScaffoldMessenger.of(context);
 
-                              // If Completed/Confirmed, update the simulated status of SIM to Sold
-                              if (newStatus == OrderStatus.completed ||
-                                  newStatus == OrderStatus.confirmed) {
-                                if (sim != null && sim.status != SimStatus.sold) {
-                                  final updatedSim = BeautifulSim(
-                                    id: sim.id,
-                                    phoneNumber: sim.phoneNumber,
-                                    carrier: sim.carrier,
-                                    type: sim.type,
-                                    price: sim.price,
-                                    meaning: sim.meaning,
-                                    status: SimStatus.sold,
-                                    description: sim.description,
-                                  );
-                                  SimService.instance.updateSim(updatedSim);
-                                }
-                              } else if (newStatus == OrderStatus.cancelled ||
-                                  newStatus == OrderStatus.pending) {
-                                // If marked pending/cancelled, see if we can restore the SIM to available
-                                if (sim != null && sim.status == SimStatus.sold) {
-                                  final updatedSim = BeautifulSim(
-                                    id: sim.id,
-                                    phoneNumber: sim.phoneNumber,
-                                    carrier: sim.carrier,
-                                    type: sim.type,
-                                    price: sim.price,
-                                    meaning: sim.meaning,
-                                    status: SimStatus.available,
-                                    description: sim.description,
-                                  );
-                                  SimService.instance.updateSim(updatedSim);
-                                }
-                              }
-
-                              setState(() {});
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    'Đã cập nhật trạng thái đơn hàng ${order.id} thành "${newStatus.label}".',
-                                  ),
-                                  behavior: SnackBarBehavior.floating,
+                              showDialog<void>(
+                                context: context,
+                                barrierDismissible: false,
+                                builder: (context) => const Center(
+                                  child: CircularProgressIndicator(),
                                 ),
                               );
+
+                              try {
+                                await OrderService.instance.updateOrderStatus(order.id, newStatus);
+                                await SimService.instance.loadSims();
+                                await OrderService.instance.loadOrders();
+
+                                if (!mounted) return;
+                                navigator.pop(); // Đóng loading
+
+                                setState(() {});
+                                scaffoldMessenger.showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'Đã cập nhật trạng thái đơn hàng ${order.id} thành "${newStatus.label}".',
+                                    ),
+                                    behavior: SnackBarBehavior.floating,
+                                  ),
+                                );
+                              } catch (e) {
+                                if (!mounted) return;
+                                navigator.pop(); // Đóng loading
+                                scaffoldMessenger.showSnackBar(
+                                  SnackBar(
+                                    content: Text('Không thể cập nhật trạng thái đơn hàng: $e'),
+                                    behavior: SnackBarBehavior.floating,
+                                  ),
+                                );
+                              }
                             }
                           },
                         ),

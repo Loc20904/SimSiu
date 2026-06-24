@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../core/app_routes.dart';
 import '../../core/app_theme.dart';
 import '../../services/auth_service.dart';
+import '../../services/sim_service.dart';
+import '../../services/order_service.dart';
 import '../../widgets/app_logo.dart';
 
 enum _AuthMode { login, register }
@@ -56,6 +58,13 @@ class _LoginRegisterScreenState extends State<LoginRegisterScreen> {
           phone: _phoneController.text,
           password: _passwordController.text,
         );
+      }
+
+      try {
+        await SimService.instance.loadSims();
+        await OrderService.instance.loadOrders();
+      } catch (e) {
+        debugPrint('Error loading data after auth: $e');
       }
 
       completed = true;

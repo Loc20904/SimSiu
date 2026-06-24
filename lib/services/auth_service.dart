@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../core/api_config.dart';
 import '../models/app_user.dart';
 import 'order_service.dart';
+import 'api_client.dart';
 
 class AuthException implements Exception {
   const AuthException(this.message);
@@ -43,10 +44,12 @@ class AuthService {
     }
 
     final preferences = await SharedPreferences.getInstance();
+    final token = preferences.getString(_tokenKey);
     final savedUser = preferences.getString(_currentUserKey);
-    final savedToken = preferences.getString(_tokenKey);
 
-    if (savedUser == null || savedToken == null) {
+    if (token == null || savedUser == null) {
+      _currentUser = null;
+      ApiClient.instance.setToken(null);
       return null;
     }
 
@@ -54,12 +57,12 @@ class AuthService {
       final decoded = jsonDecode(savedUser);
       final user = AppUser.fromJson(Map<String, Object?>.from(decoded as Map));
       _currentUser = user;
-      _token = savedToken;
+      ApiClient.instance.setToken(token);
     } catch (_) {
       await preferences.remove(_currentUserKey);
       await preferences.remove(_tokenKey);
       _currentUser = null;
-      _token = null;
+      ApiClient.instance.setToken(null);
     }
 
     return _currentUser;
@@ -70,39 +73,27 @@ class AuthService {
     required String password,
   }) async {
     try {
-      final response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}/auth/signin'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'email': email.trim(),
-          'password': password,
-        }),
-      );
+      final responseBody = await ApiClient.instance.post('/auth/signin', {
+        'email': email.trim(),
+        'password': password,
+      });
 
-      final decodedBody = jsonDecode(response.body);
-
-      if (response.statusCode != 200) {
-        throw AuthException(decodedBody['message'] ?? 'Đăng nhập thất bại.');
-      }
-
-      final token = decodedBody['token'] as String;
-      final userJson = decodedBody['user'] as Map<String, dynamic>;
-      final user = AppUser.fromJson(userJson);
+      final token = responseBody['token'] as String;
+      final userJson = responseBody['user'] as Map<String, dynamic>;
+      final user = AppUser.fromJson(Map<String, Object?>.from(userJson));
 
       _currentUser = user;
-      _token = token;
-
-      await _saveSession(user, token);
       
-      // Load orders for the signed in user
-      await OrderService.instance.fetchOrders(userId: user.id);
-
+      final preferences = await SharedPreferences.getInstance();
+      await preferences.setString(_tokenKey, token);
+      await preferences.setString(_currentUserKey, jsonEncode(user.toJson()));
+      
+      ApiClient.instance.setToken(token);
       return user;
+    } on ApiException catch (e) {
+      throw AuthException(e.message);
     } catch (e) {
-      if (e is AuthException) {
-        rethrow;
-      }
-      throw AuthException('Không thể kết nối đến máy chủ: $e');
+      throw AuthException('Đăng nhập thất bại: $e');
     }
   }
 
@@ -113,56 +104,37 @@ class AuthService {
     required String password,
   }) async {
     try {
-      final response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}/auth/register'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'fullName': fullName.trim(),
-          'email': email.trim().toLowerCase(),
-          'phone': phone.trim(),
-          'password': password,
-        }),
-      );
+      final responseBody = await ApiClient.instance.post('/auth/register', {
+        'fullName': fullName.trim(),
+        'email': email.trim().toLowerCase(),
+        'phone': phone.trim(),
+        'password': password,
+      });
 
-      final decodedBody = jsonDecode(response.body);
-
-      if (response.statusCode != 200) {
-        throw AuthException(decodedBody['message'] ?? 'Đăng ký thất bại.');
-      }
-
-      final token = decodedBody['token'] as String;
-      final userJson = decodedBody['user'] as Map<String, dynamic>;
-      final user = AppUser.fromJson(userJson);
+      final token = responseBody['token'] as String;
+      final userJson = responseBody['user'] as Map<String, dynamic>;
+      final user = AppUser.fromJson(Map<String, Object?>.from(userJson));
 
       _currentUser = user;
-      _token = token;
 
-      await _saveSession(user, token);
+      final preferences = await SharedPreferences.getInstance();
+      await preferences.setString(_tokenKey, token);
+      await preferences.setString(_currentUserKey, jsonEncode(user.toJson()));
 
-      // Load orders for the newly registered user
-      await OrderService.instance.fetchOrders(userId: user.id);
-
+      ApiClient.instance.setToken(token);
       return user;
+    } on ApiException catch (e) {
+      throw AuthException(e.message);
     } catch (e) {
-      if (e is AuthException) {
-        rethrow;
-      }
-      throw AuthException('Không thể kết nối đến máy chủ: $e');
+      throw AuthException('Đăng ký thất bại: $e');
     }
   }
 
   Future<void> signOut() async {
     _currentUser = null;
-    _token = null;
+    ApiClient.instance.setToken(null);
     final preferences = await SharedPreferences.getInstance();
     await preferences.remove(_currentUserKey);
     await preferences.remove(_tokenKey);
-    OrderService.instance.clearOrders();
-  }
-
-  Future<void> _saveSession(AppUser user, String token) async {
-    final preferences = await SharedPreferences.getInstance();
-    await preferences.setString(_currentUserKey, jsonEncode(user.toJson()));
-    await preferences.setString(_tokenKey, token);
   }
 }

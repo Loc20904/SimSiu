@@ -142,6 +142,10 @@ void main() {
 
     expect(find.text('Chi tiết SIM'), findsOneWidget);
     expect(find.text('Ý nghĩa SIM'), findsOneWidget);
+
+    await tester.drag(find.byType(ListView), const Offset(0, -300));
+    await tester.pumpAndSettle();
+
     expect(find.text('Mua SIM an tâm'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('buy_sim_button')));
@@ -158,6 +162,9 @@ void main() {
       find.byKey(const ValueKey('address_field')),
       '123 Nguyễn Huệ, Quận 1, TP.HCM',
     );
+    await tester.drag(find.byType(ListView), const Offset(0, -400));
+    await tester.pumpAndSettle();
+
     await tester.ensureVisible(
       find.byKey(const ValueKey('confirm_order_button')),
     );
