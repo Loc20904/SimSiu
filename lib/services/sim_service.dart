@@ -1,37 +1,62 @@
 import 'package:flutter/foundation.dart';
 
-import '../data/mock_sim_data.dart';
 import '../models/beautiful_sim.dart';
+import 'api_client.dart';
 
 class SimService extends ChangeNotifier {
   SimService._();
 
   static final SimService instance = SimService._();
 
-  final List<BeautifulSim> _sims = List.from(mockSims);
+  final List<BeautifulSim> _sims = [];
 
   List<BeautifulSim> getAllSims() {
     return List.unmodifiable(_sims);
   }
 
-  void addSim(BeautifulSim sim) {
-    _sims.add(sim);
-    notifyListeners();
-  }
-
-  void updateSim(BeautifulSim updatedSim) {
-    final index = _sims.indexWhere((sim) => sim.id == updatedSim.id);
-    if (index != -1) {
-      _sims[index] = updatedSim;
+  Future<void> loadSims() async {
+    try {
+      final List<dynamic> jsonList = await ApiClient.instance.get('/sims');
+      _sims.clear();
+      for (final item in jsonList) {
+        if (item is Map<String, dynamic>) {
+          _sims.add(BeautifulSim.fromJson(Map<String, Object?>.from(item)));
+        }
+      }
       notifyListeners();
+    } catch (e) {
+      debugPrint('Error loading sims: $e');
+      rethrow;
     }
   }
 
-  void deleteSim(String id) {
-    final beforeLength = _sims.length;
-    _sims.removeWhere((sim) => sim.id == id);
-    if (_sims.length != beforeLength) {
-      notifyListeners();
+  Future<void> addSim(BeautifulSim sim) async {
+    try {
+      await ApiClient.instance.post('/sims', sim.toJson());
+      await loadSims();
+    } catch (e) {
+      debugPrint('Error adding sim: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> updateSim(BeautifulSim updatedSim) async {
+    try {
+      await ApiClient.instance.put('/sims/${updatedSim.id}', updatedSim.toJson());
+      await loadSims();
+    } catch (e) {
+      debugPrint('Error updating sim: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> deleteSim(String id) async {
+    try {
+      await ApiClient.instance.delete('/sims/$id');
+      await loadSims();
+    } catch (e) {
+      debugPrint('Error deleting sim: $e');
+      rethrow;
     }
   }
 }

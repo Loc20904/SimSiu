@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../core/app_routes.dart';
 import '../../core/app_theme.dart';
 import '../../services/auth_service.dart';
+import '../../services/sim_service.dart';
+import '../../services/order_service.dart';
 import '../../widgets/app_logo.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -21,6 +23,16 @@ class _SplashScreenState extends State<SplashScreen> {
 
   Future<void> _openNextScreen() async {
     final user = await AuthService.instance.restoreSession();
+    
+    try {
+      await SimService.instance.loadSims();
+      if (user != null) {
+        await OrderService.instance.loadOrders();
+      }
+    } catch (e) {
+      debugPrint('Error loading initial data: $e');
+    }
+
     if (!mounted) {
       return;
     }

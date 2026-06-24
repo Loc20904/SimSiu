@@ -113,11 +113,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
 
     setState(() => _isSubmitting = true);
-    await Future<void>.delayed(const Duration(milliseconds: 350));
-    if (!mounted) {
-      return;
-    }
-
+    
     final now = DateTime.now();
     final order = SimOrder(
       id: 'ORD-${now.millisecondsSinceEpoch}',
@@ -131,40 +127,41 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       createdAt: now,
       note: _noteController.text.trim(),
     );
-    OrderService.instance.createOrder(order);
-    SimService.instance.updateSim(
-      BeautifulSim(
-        id: latestSim.id,
-        phoneNumber: latestSim.phoneNumber,
-        carrier: latestSim.carrier,
-        type: latestSim.type,
-        price: latestSim.price,
-        meaning: latestSim.meaning,
-        status: SimStatus.sold,
-        description: latestSim.description,
-      ),
-    );
 
-    setState(() => _isSubmitting = false);
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => AlertDialog(
-        icon: const Icon(Icons.check_circle, color: AppPalette.teal, size: 48),
-        title: const Text('Đặt mua thành công'),
-        content: Text(
-          'Đơn ${order.id} đã được tạo. Nhân viên sẽ liên hệ xác nhận trong thời gian sớm nhất.',
-          textAlign: TextAlign.center,
-        ),
-        actions: [
-          FilledButton(
-            key: const ValueKey('view_orders_button'),
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Xem đơn hàng'),
+    try {
+      await OrderService.instance.createOrder(order);
+      await SimService.instance.loadSims(); // reload sims to reflect sold status
+      
+      if (!mounted) return;
+      setState(() => _isSubmitting = false);
+
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) => AlertDialog(
+          icon: const Icon(Icons.check_circle, color: AppPalette.teal, size: 48),
+          title: const Text('Đặt mua thành công'),
+          content: Text(
+            'Đơn ${order.id} đã được tạo. Nhân viên sẽ liên hệ xác nhận trong thời gian sớm nhất.',
+            textAlign: TextAlign.center,
           ),
-        ],
-      ),
-    );
+          actions: [
+            FilledButton(
+              key: const ValueKey('view_orders_button'),
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Xem đơn hàng'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isSubmitting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Không thể đặt mua SIM: $e')),
+      );
+      return;
+    }
     if (mounted) {
       Navigator.of(context).pushReplacementNamed(AppRoutes.myOrders);
     }
