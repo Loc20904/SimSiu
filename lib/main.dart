@@ -14,6 +14,7 @@ import 'screens/orders/my_orders_screen.dart';
 import 'screens/sim_detail/sim_detail_screen.dart';
 import 'screens/sim_list/sim_list_screen.dart';
 import 'screens/splash/splash_screen.dart';
+import 'services/payment_service.dart';
 import 'services/sim_service.dart';
 
 void main() {
@@ -65,7 +66,12 @@ class _SimDepAppState extends State<SimDepApp> {
     }
 
     final simId = uri.queryParameters['simId'];
+    final orderCode = int.tryParse(uri.queryParameters['orderCode'] ?? '');
     if (uri.path.contains('cancel') && simId != null && simId.isNotEmpty) {
+      if (orderCode != null) {
+        await PaymentService.instance.cancelPayOsPayment(orderCode);
+        await SimService.instance.fetchSims(force: true);
+      }
       navigator.pushNamedAndRemoveUntil(
         AppRoutes.simDetail,
         (route) => route.settings.name == AppRoutes.home,
@@ -75,6 +81,9 @@ class _SimDepAppState extends State<SimDepApp> {
     }
 
     if (uri.path.contains('success')) {
+      if (orderCode != null) {
+        await PaymentService.instance.syncPayOsPayment(orderCode);
+      }
       navigator.pushNamedAndRemoveUntil(
         AppRoutes.myOrders,
         (route) => route.settings.name == AppRoutes.home,

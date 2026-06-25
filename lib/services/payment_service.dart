@@ -51,4 +51,20 @@ class PaymentService {
 
     return PayOsCheckout.fromJson(response);
   }
+
+  Future<void> cancelPayOsPayment(int orderCode) async {
+    await ApiClient.instance.post(
+      '/payments/payos/$orderCode/cancel',
+      body: <String, Object?>{},
+      requiresAuth: true,
+    );
+  }
+
+  Future<void> syncPayOsPayment(int orderCode) async {
+    await ApiClient.instance.post(
+      '/payments/payos/$orderCode/sync',
+      body: <String, Object?>{},
+      requiresAuth: true,
+    );
+  }
 }
