@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/beautiful_sim.dart';
 import 'api_client.dart';
@@ -23,6 +25,24 @@ class SimService extends ChangeNotifier {
     await fetchSims(force: true);
   }
 
+  void _sortSims() {
+    _sims.sort((a, b) {
+      final aNum = int.tryParse(a.id.replaceAll(RegExp(r'\D'), '')) ?? 0;
+      final bNum = int.tryParse(b.id.replaceAll(RegExp(r'\D'), '')) ?? 0;
+      return bNum.compareTo(aNum);
+    });
+  }
+
+  Future<void> _saveToCache() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonList = _sims.map((s) => s.toJson()).toList();
+      await prefs.setString('cached_sims', jsonEncode(jsonList));
+    } catch (e) {
+      debugPrint('Error saving sims to cache: $e');
+    }
+  }
+
   Future<List<BeautifulSim>> fetchSims({bool force = false}) async {
     if (_hasLoadedFromApi && !force) {
       return getAllSims();
@@ -40,7 +60,33 @@ class SimService extends ChangeNotifier {
             (item) => BeautifulSim.fromJson(Map<String, Object?>.from(item as Map)),
           ),
         );
+      _sortSims();
       _hasLoadedFromApi = true;
+      await _saveToCache();
+      return getAllSims();
+    } catch (e) {
+      debugPrint('Error fetching sims: $e');
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final cached = prefs.getString('cached_sims');
+        if (cached != null) {
+          final List<dynamic> jsonList = jsonDecode(cached);
+          _sims
+            ..clear()
+            ..addAll(
+              jsonList.map(
+                (item) => BeautifulSim.fromJson(Map<String, Object?>.from(item as Map)),
+              ),
+            );
+          _sortSims();
+          _hasLoadedFromApi = true;
+        } else {
+          rethrow;
+        }
+      } catch (cacheError) {
+        debugPrint('Error loading cached sims: $cacheError');
+        rethrow;
+      }
       return getAllSims();
     } finally {
       _isLoading = false;
@@ -58,6 +104,8 @@ class SimService extends ChangeNotifier {
       } else {
         _sims[index] = sim;
       }
+      _sortSims();
+      await _saveToCache();
       notifyListeners();
       return sim;
     } on ApiException {
@@ -73,6 +121,8 @@ class SimService extends ChangeNotifier {
     );
     final created = BeautifulSim.fromJson(Map<String, Object?>.from(response as Map));
     _sims.add(created);
+    _sortSims();
+    await _saveToCache();
     notifyListeners();
   }
 
@@ -87,6 +137,8 @@ class SimService extends ChangeNotifier {
     if (index != -1) {
       _sims[index] = updatedSim;
     }
+    _sortSims();
+    await _saveToCache();
     notifyListeners();
   }
 
@@ -94,6 +146,8 @@ class SimService extends ChangeNotifier {
     final index = _sims.indexWhere((sim) => sim.id == updatedSim.id);
     if (index != -1) {
       _sims[index] = updatedSim;
+      _sortSims();
+      await _saveToCache();
       notifyListeners();
     }
   }
@@ -101,6 +155,7 @@ class SimService extends ChangeNotifier {
   Future<void> deleteSim(String id) async {
     await ApiClient.instance.delete('/sims/$id', requiresAuth: true);
     _sims.removeWhere((sim) => sim.id == id);
+    await _saveToCache();
     notifyListeners();
   }
 }
