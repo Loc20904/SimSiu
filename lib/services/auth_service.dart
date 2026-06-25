@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/app_user.dart';
+import 'api_config.dart';
 
 class AuthException implements Exception {
   const AuthException(this.message);
@@ -19,43 +21,24 @@ class AuthService {
 
   static final AuthService instance = AuthService._();
   static const _currentUserKey = 'auth.currentUser';
-
-  final List<_AuthAccount> _accounts = [
-    const _AuthAccount(
-      user: AppUser(
-        id: 'user-customer',
-        fullName: 'Nguyễn Văn Khách',
-        email: 'customer@simdep.vn',
-        phone: '0909000000',
-        role: UserRole.customer,
-      ),
-      password: '123456',
-    ),
-    const _AuthAccount(
-      user: AppUser(
-        id: 'user-admin',
-        fullName: 'Quản trị viên',
-        email: 'admin@simdep.vn',
-        phone: '0909999999',
-        role: UserRole.admin,
-      ),
-      password: 'admin123',
-    ),
-  ];
+  static const _tokenKey = 'auth.token';
 
   AppUser? _currentUser;
+  String? _token;
 
   AppUser? get currentUser => _currentUser;
+  String? get token => _token;
 
   Future<AppUser?> restoreSession() async {
-    await Future<void>.delayed(const Duration(milliseconds: 1200));
     if (_currentUser != null) {
       return _currentUser;
     }
 
     final preferences = await SharedPreferences.getInstance();
     final savedUser = preferences.getString(_currentUserKey);
-    if (savedUser == null) {
+    _token = preferences.getString(_tokenKey);
+
+    if (savedUser == null || _token == null || _token!.isEmpty) {
       return null;
     }
 
@@ -65,7 +48,9 @@ class AuthService {
       _currentUser = user;
     } catch (_) {
       await preferences.remove(_currentUserKey);
+      await preferences.remove(_tokenKey);
       _currentUser = null;
+      _token = null;
     }
 
     return _currentUser;
@@ -75,16 +60,12 @@ class AuthService {
     required String email,
     required String password,
   }) async {
-    await Future<void>.delayed(const Duration(milliseconds: 450));
+    final response = await _postAuth('/auth/signin', {
+      'email': email,
+      'password': password,
+    });
 
-    final account = _findByEmail(email);
-    if (account == null || account.password != password) {
-      throw const AuthException('Email hoặc mật khẩu không đúng.');
-    }
-
-    _currentUser = account.user;
-    await _saveSession(account.user);
-    return account.user;
+    return _applyAuthResponse(response);
   }
 
   Future<AppUser> register({
@@ -93,51 +74,69 @@ class AuthService {
     required String phone,
     required String password,
   }) async {
-    await Future<void>.delayed(const Duration(milliseconds: 450));
+    final response = await _postAuth('/auth/register', {
+      'fullName': fullName,
+      'email': email,
+      'phone': phone,
+      'password': password,
+    });
 
-    if (_findByEmail(email) != null) {
-      throw const AuthException('Email này đã được sử dụng.');
-    }
-
-    final user = AppUser(
-      id: 'user-${DateTime.now().millisecondsSinceEpoch}',
-      fullName: fullName.trim(),
-      email: email.trim().toLowerCase(),
-      phone: phone.trim(),
-      role: UserRole.customer,
-    );
-
-    _accounts.add(_AuthAccount(user: user, password: password));
-    _currentUser = user;
-    await _saveSession(user);
-    return user;
+    return _applyAuthResponse(response);
   }
 
   Future<void> signOut() async {
     _currentUser = null;
+    _token = null;
     final preferences = await SharedPreferences.getInstance();
     await preferences.remove(_currentUserKey);
+    await preferences.remove(_tokenKey);
   }
 
-  _AuthAccount? _findByEmail(String email) {
-    final normalizedEmail = email.trim().toLowerCase();
-    for (final account in _accounts) {
-      if (account.user.email.toLowerCase() == normalizedEmail) {
-        return account;
+  Future<Map<String, Object?>> _postAuth(
+    String path,
+    Map<String, Object?> body,
+  ) async {
+    try {
+      final response = await http.post(
+        Uri.parse('${ApiConfig.baseUrl}$path'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(body),
+      );
+
+      final decoded = response.body.isEmpty
+          ? <String, Object?>{}
+          : Map<String, Object?>.from(jsonDecode(response.body) as Map);
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw AuthException(decoded['message'] as String? ?? 'Dang nhap that bai.');
       }
+
+      return decoded;
+    } on AuthException {
+      rethrow;
+    } catch (error) {
+      throw AuthException('Khong ket noi duoc backend: $error');
     }
-    return null;
   }
 
-  Future<void> _saveSession(AppUser user) async {
+  Future<AppUser> _applyAuthResponse(Map<String, Object?> response) async {
+    final token = response['token'] as String?;
+    final userJson = response['user'];
+
+    if (token == null || userJson is! Map) {
+      throw const AuthException('Phan hoi dang nhap khong hop le.');
+    }
+
+    final user = AppUser.fromJson(Map<String, Object?>.from(userJson));
+    _currentUser = user;
+    _token = token;
+    await _saveSession(user, token);
+    return user;
+  }
+
+  Future<void> _saveSession(AppUser user, String token) async {
     final preferences = await SharedPreferences.getInstance();
     await preferences.setString(_currentUserKey, jsonEncode(user.toJson()));
+    await preferences.setString(_tokenKey, token);
   }
-}
-
-class _AuthAccount {
-  const _AuthAccount({required this.user, required this.password});
-
-  final AppUser user;
-  final String password;
 }

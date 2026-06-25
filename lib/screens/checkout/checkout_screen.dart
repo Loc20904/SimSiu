@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/app_routes.dart';
 import '../../core/app_theme.dart';
 import '../../core/formatters.dart';
 import '../../models/beautiful_sim.dart';
-import '../../models/sim_order.dart';
 import '../../services/auth_service.dart';
-import '../../services/order_service.dart';
+import '../../services/payment_service.dart';
 import '../../services/sim_service.dart';
 
 class CheckoutScreen extends StatefulWidget {
@@ -26,11 +26,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   var _isSubmitting = false;
 
   @override
+  void initState() {
+    super.initState();
+    SimService.instance.fetchSims(force: true);
+  }
+
+  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_didPrefill) {
       return;
     }
+
     final user = AuthService.instance.currentUser;
     _nameController.text = user?.fullName ?? '';
     _phoneController.text = user?.phone ?? '';
@@ -53,33 +60,38 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       String id => id,
       _ => null,
     };
+
     if (simId == null) {
       return null;
     }
+
     for (final sim in SimService.instance.getAllSims()) {
       if (sim.id == simId) {
         return sim;
       }
     }
+
     return null;
   }
 
   String? _requiredValidator(String? value, String fieldName) {
     if (value == null || value.trim().isEmpty) {
-      return 'Vui lòng nhập $fieldName.';
+      return 'Vui long nhap $fieldName.';
     }
     return null;
   }
 
   String? _phoneValidator(String? value) {
-    final requiredError = _requiredValidator(value, 'số điện thoại');
+    final requiredError = _requiredValidator(value, 'so dien thoai');
     if (requiredError != null) {
       return requiredError;
     }
+
     final digits = value!.replaceAll(RegExp(r'\D'), '');
     if (!RegExp(r'^0\d{9}$').hasMatch(digits)) {
-      return 'Số điện thoại phải gồm 10 chữ số và bắt đầu bằng 0.';
+      return 'So dien thoai phai gom 10 chu so va bat dau bang 0.';
     }
+
     return null;
   }
 
@@ -92,7 +104,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final user = AuthService.instance.currentUser;
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng đăng nhập trước khi đặt mua.')),
+        const SnackBar(content: Text('Vui long dang nhap truoc khi dat mua.')),
       );
       Navigator.of(context).pushNamed(AppRoutes.auth);
       return;
@@ -105,7 +117,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     if (latestSim == null || latestSim.status != SimStatus.available) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('SIM này vừa được đặt mua. Vui lòng chọn SIM khác.'),
+          content: Text('SIM nay vua duoc dat mua. Vui long chon SIM khac.'),
         ),
       );
       setState(() {});
@@ -113,60 +125,68 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
 
     setState(() => _isSubmitting = true);
-    await Future<void>.delayed(const Duration(milliseconds: 350));
-    if (!mounted) {
-      return;
-    }
+    try {
+      final checkout = await PaymentService.instance.createPayOsOrder(
+        simId: latestSim.id,
+        receiverName: _nameController.text.trim(),
+        receiverPhone: _phoneController.text.replaceAll(RegExp(r'\D'), ''),
+        address: _addressController.text.trim(),
+        note: _noteController.text.trim(),
+      );
 
-    final now = DateTime.now();
-    final order = SimOrder(
-      id: 'ORD-${now.millisecondsSinceEpoch}',
-      userId: user.id,
-      simId: latestSim.id,
-      receiverName: _nameController.text.trim(),
-      receiverPhone: _phoneController.text.replaceAll(RegExp(r'\D'), ''),
-      address: _addressController.text.trim(),
-      totalPrice: latestSim.price,
-      status: OrderStatus.pending,
-      createdAt: now,
-      note: _noteController.text.trim(),
-    );
-    OrderService.instance.createOrder(order);
-    SimService.instance.updateSim(
-      BeautifulSim(
-        id: latestSim.id,
-        phoneNumber: latestSim.phoneNumber,
-        carrier: latestSim.carrier,
-        type: latestSim.type,
-        price: latestSim.price,
-        meaning: latestSim.meaning,
-        status: SimStatus.sold,
-        description: latestSim.description,
-      ),
-    );
+      if (!mounted) {
+        return;
+      }
 
-    setState(() => _isSubmitting = false);
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => AlertDialog(
-        icon: const Icon(Icons.check_circle, color: AppPalette.teal, size: 48),
-        title: const Text('Đặt mua thành công'),
-        content: Text(
-          'Đơn ${order.id} đã được tạo. Nhân viên sẽ liên hệ xác nhận trong thời gian sớm nhất.',
-          textAlign: TextAlign.center,
-        ),
-        actions: [
-          FilledButton(
-            key: const ValueKey('view_orders_button'),
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Xem đơn hàng'),
+      setState(() => _isSubmitting = false);
+      final opened = await launchUrl(
+        Uri.parse(checkout.checkoutUrl),
+        mode: LaunchMode.externalApplication,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      if (!opened) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Khong mo duoc trang thanh toan payOS.')),
+        );
+        return;
+      }
+
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) => AlertDialog(
+          icon: const Icon(Icons.payments_outlined, color: AppPalette.teal, size: 48),
+          title: const Text('Da tao thanh toan payOS'),
+          content: Text(
+            'Don ${checkout.orderId} da duoc tao. Vui long hoan tat thanh toan tren trang payOS.',
+            textAlign: TextAlign.center,
           ),
-        ],
-      ),
-    );
-    if (mounted) {
-      Navigator.of(context).pushReplacementNamed(AppRoutes.myOrders);
+          actions: [
+            FilledButton(
+              key: const ValueKey('view_orders_button'),
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Xem don hang'),
+            ),
+          ],
+        ),
+      );
+
+      if (mounted) {
+        Navigator.of(context).pushReplacementNamed(AppRoutes.myOrders);
+      }
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() => _isSubmitting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.toString())),
+      );
     }
   }
 
@@ -175,14 +195,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final sim = _resolveSim();
     if (sim == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Đặt mua SIM')),
+        appBar: AppBar(title: const Text('Dat mua SIM')),
         body: const _MissingCheckoutSim(),
       );
     }
 
     final isAvailable = sim.status == SimStatus.available;
     return Scaffold(
-      appBar: AppBar(title: const Text('Đặt mua SIM')),
+      appBar: AppBar(title: const Text('Dat mua SIM')),
       body: Form(
         key: _formKey,
         child: ListView(
@@ -197,7 +217,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Thông tin nhận hàng',
+                      'Thong tin nhan hang',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         color: AppPalette.ink,
                         fontWeight: FontWeight.w900,
@@ -205,7 +225,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     ),
                     const SizedBox(height: 6),
                     const Text(
-                      'Vui lòng nhập chính xác để nhân viên liên hệ xác nhận.',
+                      'Vui long nhap chinh xac de nhan vien lien he xac nhan.',
                       style: TextStyle(color: AppPalette.muted),
                     ),
                     const SizedBox(height: 16),
@@ -214,11 +234,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       controller: _nameController,
                       textInputAction: TextInputAction.next,
                       decoration: const InputDecoration(
-                        labelText: 'Họ tên người nhận',
+                        labelText: 'Ho ten nguoi nhan',
                         prefixIcon: Icon(Icons.person_outline),
                       ),
-                      validator: (value) =>
-                          _requiredValidator(value, 'họ tên người nhận'),
+                      validator: (value) => _requiredValidator(value, 'ho ten nguoi nhan'),
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
@@ -227,7 +246,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       keyboardType: TextInputType.phone,
                       textInputAction: TextInputAction.next,
                       decoration: const InputDecoration(
-                        labelText: 'Số điện thoại',
+                        labelText: 'So dien thoai',
                         prefixIcon: Icon(Icons.phone_outlined),
                       ),
                       validator: _phoneValidator,
@@ -240,12 +259,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       minLines: 2,
                       maxLines: 3,
                       decoration: const InputDecoration(
-                        labelText: 'Địa chỉ nhận hàng',
+                        labelText: 'Dia chi nhan hang',
                         alignLabelWithHint: true,
                         prefixIcon: Icon(Icons.place_outlined),
                       ),
-                      validator: (value) =>
-                          _requiredValidator(value, 'địa chỉ nhận hàng'),
+                      validator: (value) => _requiredValidator(value, 'dia chi nhan hang'),
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
@@ -254,7 +272,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       minLines: 2,
                       maxLines: 4,
                       decoration: const InputDecoration(
-                        labelText: 'Ghi chú (không bắt buộc)',
+                        labelText: 'Ghi chu (khong bat buoc)',
                         alignLabelWithHint: true,
                         prefixIcon: Icon(Icons.edit_note_outlined),
                       ),
@@ -264,31 +282,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               ),
             ),
             const SizedBox(height: 14),
-            Card(
+            const Card(
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.all(16),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 42,
-                      height: 42,
-                      decoration: BoxDecoration(
-                        color: AppPalette.teal.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(
-                        Icons.payments_outlined,
-                        color: AppPalette.teal,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    const Expanded(
+                    _PaymentIcon(),
+                    SizedBox(width: 12),
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Thanh toán khi nhận hàng',
+                            'Thanh toan payOS',
                             style: TextStyle(
                               color: AppPalette.ink,
                               fontWeight: FontWeight.w900,
@@ -296,7 +303,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           ),
                           SizedBox(height: 5),
                           Text(
-                            'Không cần chuyển khoản trước. Bạn thanh toán sau khi nhận và kiểm tra SIM.',
+                            'Ung dung se mo trang payOS de ban quet VietQR va hoan tat thanh toan.',
                             style: TextStyle(
                               color: AppPalette.muted,
                               height: 1.4,
@@ -312,9 +319,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             const SizedBox(height: 18),
             FilledButton.icon(
               key: const ValueKey('confirm_order_button'),
-              onPressed: isAvailable && !_isSubmitting
-                  ? () => _submit(sim)
-                  : null,
+              onPressed: isAvailable && !_isSubmitting ? () => _submit(sim) : null,
               icon: _isSubmitting
                   ? const SizedBox(
                       width: 20,
@@ -324,23 +329,42 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         color: Colors.white,
                       ),
                     )
-                  : const Icon(Icons.check_circle_outline),
+                  : const Icon(Icons.payments_outlined),
               label: Text(
                 !isAvailable
-                    ? 'SIM đã được bán'
+                    ? 'SIM da duoc ban'
                     : _isSubmitting
-                    ? 'Đang tạo đơn...'
-                    : 'Xác nhận đặt mua',
+                        ? 'Dang tao thanh toan...'
+                        : 'Thanh toan voi payOS',
               ),
             ),
             const SizedBox(height: 8),
             const Text(
-              'Bằng việc xác nhận, bạn đồng ý để nhân viên liên hệ về đơn hàng này.',
+              'Trang thai don hang se duoc cap nhat tu webhook payOS sau khi thanh toan thanh cong.',
               textAlign: TextAlign.center,
               style: TextStyle(color: AppPalette.muted, fontSize: 12),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _PaymentIcon extends StatelessWidget {
+  const _PaymentIcon();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppPalette.teal.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: const SizedBox(
+        width: 42,
+        height: 42,
+        child: Icon(Icons.payments_outlined, color: AppPalette.teal),
       ),
     );
   }
@@ -387,7 +411,7 @@ class _OrderSummary extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${sim.carrier} • ${sim.type}',
+                  '${sim.carrier} - ${sim.type}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(color: Colors.white.withValues(alpha: 0.82)),
@@ -427,15 +451,14 @@ class _MissingCheckoutSim extends StatelessWidget {
             ),
             const SizedBox(height: 14),
             const Text(
-              'Bạn chưa chọn SIM để đặt mua.',
+              'Ban chua chon SIM de dat mua.',
               textAlign: TextAlign.center,
               style: TextStyle(fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 14),
             OutlinedButton(
-              onPressed: () =>
-                  Navigator.of(context).pushReplacementNamed(AppRoutes.simList),
-              child: const Text('Chọn SIM'),
+              onPressed: () => Navigator.of(context).pushReplacementNamed(AppRoutes.simList),
+              child: const Text('Chon SIM'),
             ),
           ],
         ),

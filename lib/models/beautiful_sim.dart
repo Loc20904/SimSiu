@@ -1,10 +1,11 @@
-enum SimStatus { available, sold }
+enum SimStatus { available, reserved, sold }
 
 extension SimStatusLabel on SimStatus {
   String get label {
     return switch (this) {
-      SimStatus.available => 'Còn hàng',
-      SimStatus.sold => 'Đã bán',
+      SimStatus.available => 'Con hang',
+      SimStatus.reserved => 'Cho thanh toan',
+      SimStatus.sold => 'Da ban',
     };
   }
 }
@@ -29,4 +30,45 @@ class BeautifulSim {
   final String meaning;
   final SimStatus status;
   final String description;
+
+  factory BeautifulSim.fromJson(Map<String, Object?> json) {
+    final statusName = json['status'] as String? ?? 'available';
+
+    return BeautifulSim(
+      id: json['id'] as String,
+      phoneNumber: json['phoneNumber'] as String,
+      carrier: json['carrier'] as String,
+      type: json['type'] as String,
+      price: json['price'] as int,
+      meaning: json['meaning'] as String,
+      status: SimStatus.values.firstWhere(
+        (status) => status.name.toLowerCase() == statusName.toLowerCase(),
+        orElse: () => SimStatus.available,
+      ),
+      description: json['description'] as String,
+    );
+  }
+
+  Map<String, Object?> toJson() {
+    return {
+      'id': id,
+      'phoneNumber': phoneNumber,
+      'carrier': carrier,
+      'type': type,
+      'price': price,
+      'meaning': meaning,
+      'status': status.backendName,
+      'description': description,
+    };
+  }
+}
+
+extension SimStatusApiName on SimStatus {
+  String get backendName {
+    return switch (this) {
+      SimStatus.available => 'Available',
+      SimStatus.reserved => 'Reserved',
+      SimStatus.sold => 'Sold',
+    };
+  }
 }

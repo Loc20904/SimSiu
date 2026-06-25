@@ -27,8 +27,11 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
   Color _getStatusColor(OrderStatus status) {
     return switch (status) {
       OrderStatus.pending => AppPalette.gold,
+      OrderStatus.pendingPayment => AppPalette.gold,
+      OrderStatus.paid => AppPalette.teal,
       OrderStatus.confirmed => AppPalette.blue,
       OrderStatus.completed => AppPalette.teal,
+      OrderStatus.paymentExpired => AppPalette.danger,
       OrderStatus.cancelled => AppPalette.danger,
     };
   }
@@ -57,7 +60,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
       OrderService.instance.cancelOrder(order.id);
       final sim = _findSim(order.simId);
       if (sim != null && sim.status == SimStatus.sold) {
-        SimService.instance.updateSim(
+        SimService.instance.updateSimLocal(
           BeautifulSim(
             id: sim.id,
             phoneNumber: sim.phoneNumber,
@@ -247,7 +250,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                             Icons.access_time,
                             'Thời gian đặt: $formattedDate',
                           ),
-                          if (order.status == OrderStatus.pending) ...[
+                          if (order.status == OrderStatus.pending || order.status == OrderStatus.pendingPayment) ...[
                             const SizedBox(height: 14),
                             Align(
                               alignment: Alignment.centerRight,
@@ -298,3 +301,4 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
     );
   }
 }
+
