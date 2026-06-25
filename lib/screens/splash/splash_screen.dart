@@ -22,21 +22,30 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _openNextScreen() async {
+    debugPrint('[SplashScreen] Bắt đầu khôi phục phiên đăng nhập...');
     final user = await AuthService.instance.restoreSession();
+    debugPrint('[SplashScreen] Kết quả khôi phục: ${user != null ? "Thành công (User: ${user.fullName})" : "Chưa đăng nhập"}');
     
     try {
+      debugPrint('[SplashScreen] Đang tải danh sách SIM...');
       await SimService.instance.loadSims();
+      debugPrint('[SplashScreen] Tải danh sách SIM hoàn tất.');
+
       if (user != null) {
+        debugPrint('[SplashScreen] Đang tải danh sách đơn hàng của người dùng...');
         await OrderService.instance.loadOrders();
+        debugPrint('[SplashScreen] Tải đơn hàng hoàn tất.');
       }
-    } catch (e) {
-      debugPrint('Error loading initial data: $e');
+    } catch (e, stack) {
+      debugPrint('[SplashScreen] LỖI khi tải dữ liệu khởi tạo: $e');
+      debugPrint(stack.toString());
     }
 
     if (!mounted) {
       return;
     }
 
+    debugPrint('[SplashScreen] Điều hướng sang màn hình: ${user == null ? "Xác thực (Auth)" : "Trang chủ (Home)"}');
     Navigator.of(
       context,
     ).pushReplacementNamed(user == null ? AppRoutes.auth : AppRoutes.home);

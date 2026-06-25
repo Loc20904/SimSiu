@@ -29,6 +29,8 @@ class OrderService {
     _orders.clear();
   }
 
+  Future<void> loadOrders({String? userId}) => fetchOrders(userId: userId);
+
   Future<void> fetchOrders({String? userId}) async {
     try {
       final user = AuthService.instance.currentUser;

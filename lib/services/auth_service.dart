@@ -1,12 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../core/api_config.dart';
 import '../models/app_user.dart';
-import 'order_service.dart';
 import 'api_client.dart';
 
 class AuthException implements Exception {
@@ -47,8 +45,11 @@ class AuthService {
     final token = preferences.getString(_tokenKey);
     final savedUser = preferences.getString(_currentUserKey);
 
+    debugPrint('[AuthService] restoreSession - Đọc từ SP: token = ${token != null ? "Có (độ dài: ${token.length})" : "Không"}, savedUser = ${savedUser != null ? "Có" : "Không"}');
+
     if (token == null || savedUser == null) {
       _currentUser = null;
+      _token = null;
       ApiClient.instance.setToken(null);
       return null;
     }
@@ -57,11 +58,15 @@ class AuthService {
       final decoded = jsonDecode(savedUser);
       final user = AppUser.fromJson(Map<String, Object?>.from(decoded as Map));
       _currentUser = user;
+      _token = token;
       ApiClient.instance.setToken(token);
-    } catch (_) {
+      debugPrint('[AuthService] restoreSession - Thành công. User: ${user.fullName}, _token đã nạp: ${_token != null}');
+    } catch (e) {
+      debugPrint('[AuthService] restoreSession - LỖI parse JSON: $e');
       await preferences.remove(_currentUserKey);
       await preferences.remove(_tokenKey);
       _currentUser = null;
+      _token = null;
       ApiClient.instance.setToken(null);
     }
 
@@ -88,6 +93,7 @@ class AuthService {
       await preferences.setString(_tokenKey, token);
       await preferences.setString(_currentUserKey, jsonEncode(user.toJson()));
       
+      _token = token;
       ApiClient.instance.setToken(token);
       return user;
     } on ApiException catch (e) {
@@ -121,6 +127,7 @@ class AuthService {
       await preferences.setString(_tokenKey, token);
       await preferences.setString(_currentUserKey, jsonEncode(user.toJson()));
 
+      _token = token;
       ApiClient.instance.setToken(token);
       return user;
     } on ApiException catch (e) {
@@ -132,6 +139,7 @@ class AuthService {
 
   Future<void> signOut() async {
     _currentUser = null;
+    _token = null;
     ApiClient.instance.setToken(null);
     final preferences = await SharedPreferences.getInstance();
     await preferences.remove(_currentUserKey);

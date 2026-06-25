@@ -19,6 +19,8 @@ class SimService extends ChangeNotifier {
     return List.unmodifiable(_sims);
   }
 
+  Future<void> loadSims() => fetchSims();
+
   Future<void> fetchSims() async {
     try {
       final response = await http.get(
