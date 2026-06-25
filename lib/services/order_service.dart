@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/api_config.dart';
 import '../models/sim_order.dart';
@@ -31,11 +32,37 @@ class OrderService {
 
   Future<void> loadOrders({String? userId}) => fetchOrders(userId: userId);
 
-  Future<void> fetchOrders({String? userId}) async {
+  Future<void> _saveToCache() async {
     try {
       final user = AuthService.instance.currentUser;
       if (user == null) return;
+      final prefs = await SharedPreferences.getInstance();
+      final jsonList = _orders.map((o) => o.toJson()).toList();
+      await prefs.setString('cached_orders_${user.id}', jsonEncode(jsonList));
+    } catch (e) {
+      debugPrint('Error saving orders to cache: $e');
+    }
+  }
 
+  Future<void> _loadFromCache(String userId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cached = prefs.getString('cached_orders_$userId');
+      if (cached != null) {
+        final List<dynamic> data = jsonDecode(cached);
+        _orders.clear();
+        _orders.addAll(data.map((item) => SimOrder.fromJson(item)));
+      }
+    } catch (e) {
+      debugPrint('Error loading orders from cache: $e');
+    }
+  }
+
+  Future<void> fetchOrders({String? userId}) async {
+    final user = AuthService.instance.currentUser;
+    if (user == null) return;
+
+    try {
       final String url;
       if (user.isAdmin) {
         url = '${ApiConfig.baseUrl}/orders';
@@ -53,17 +80,21 @@ class OrderService {
         final List<dynamic> data = jsonDecode(response.body);
         _orders.clear();
         _orders.addAll(data.map((item) => SimOrder.fromJson(item)));
+        await _saveToCache();
       } else {
         debugPrint('Failed to load orders: ${response.statusCode}');
+        await _loadFromCache(user.id);
       }
     } catch (e) {
       debugPrint('Error fetching orders: $e');
+      await _loadFromCache(user.id);
     }
   }
 
   Future<void> createOrder(SimOrder order) async {
     // Optimistic local update
     _orders.add(order);
+    await _saveToCache();
 
     try {
       final response = await http.post(
@@ -80,6 +111,7 @@ class OrderService {
         if (index != -1) {
           _orders[index] = created;
         }
+        await _saveToCache();
         
         // Refresh SIMs from backend to reflect the sold status
         await SimService.instance.fetchSims();
@@ -108,6 +140,7 @@ class OrderService {
         createdAt: old.createdAt,
         note: old.note,
       );
+      await _saveToCache();
     }
 
     try {
@@ -145,6 +178,7 @@ class OrderService {
         createdAt: old.createdAt,
         note: old.note,
       );
+      await _saveToCache();
     }
 
     try {

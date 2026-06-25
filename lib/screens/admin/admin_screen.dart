@@ -19,6 +19,7 @@ class _AdminScreenState extends State<AdminScreen> {
   void initState() {
     super.initState();
     SimService.instance.fetchSims(force: true);
+    OrderService.instance.loadOrders();
   }
 
   BeautifulSim? _findSim(String simId) {
@@ -584,57 +585,11 @@ class _AdminScreenState extends State<AdminScreen> {
                           }).toList(),
                           onChanged: (newStatus) {
                             if (newStatus != null) {
-                              OrderService.instance.updateOrderStatus(order.id, newStatus);
-
-                              // If Completed/Confirmed, update the simulated status of SIM to Sold
-                              if (newStatus == OrderStatus.completed ||
-                                  newStatus == OrderStatus.confirmed ||
-                                  newStatus == OrderStatus.paid) {
-                                if (sim != null && sim.status != SimStatus.sold) {
-                                  final updatedSim = BeautifulSim(
-                                    id: sim.id,
-                                    phoneNumber: sim.phoneNumber,
-                                    carrier: sim.carrier,
-                                    type: sim.type,
-                                    price: sim.price,
-                                    meaning: sim.meaning,
-                                    status: SimStatus.sold,
-                                    description: sim.description,
-                                  );
-                                  SimService.instance.updateSimLocal(updatedSim);
+                              OrderService.instance.updateOrderStatus(order.id, newStatus).then((_) {
+                                if (mounted) {
+                                  setState(() {});
                                 }
-                              } else if (newStatus == OrderStatus.cancelled ||
-                                  newStatus == OrderStatus.pending ||
-                                  newStatus == OrderStatus.paymentExpired) {
-                                // If marked pending/cancelled, see if we can restore the SIM to available
-                                if (sim != null && sim.status == SimStatus.sold) {
-                                  final updatedSim = BeautifulSim(
-                                    id: sim.id,
-                                    phoneNumber: sim.phoneNumber,
-                                    carrier: sim.carrier,
-                                    type: sim.type,
-                                    price: sim.price,
-                                    meaning: sim.meaning,
-                                    status: SimStatus.available,
-                                    description: sim.description,
-                                  );
-                                  SimService.instance.updateSimLocal(updatedSim);
-                                }
-                              } else if (newStatus == OrderStatus.pendingPayment) {
-                                if (sim != null && sim.status != SimStatus.reserved) {
-                                  final updatedSim = BeautifulSim(
-                                    id: sim.id,
-                                    phoneNumber: sim.phoneNumber,
-                                    carrier: sim.carrier,
-                                    type: sim.type,
-                                    price: sim.price,
-                                    meaning: sim.meaning,
-                                    status: SimStatus.reserved,
-                                    description: sim.description,
-                                  );
-                                  SimService.instance.updateSimLocal(updatedSim);
-                                }
-                              }
+                              });
 
                               setState(() {});
                               ScaffoldMessenger.of(context).showSnackBar(
