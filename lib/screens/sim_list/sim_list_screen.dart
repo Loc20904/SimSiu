@@ -33,6 +33,7 @@ class _SimListScreenState extends State<SimListScreen> {
   void initState() {
     super.initState();
     _simService.addListener(_handleSimDataChanged);
+    _simService.fetchSims(force: true);
     _scrollController.addListener(_handleScroll);
   }
 

@@ -1,12 +1,23 @@
-enum OrderStatus { pending, confirmed, completed, cancelled }
+enum OrderStatus {
+  pending,
+  pendingPayment,
+  paid,
+  confirmed,
+  completed,
+  paymentExpired,
+  cancelled,
+}
 
 extension OrderStatusLabel on OrderStatus {
   String get label {
     return switch (this) {
-      OrderStatus.pending => 'Chờ xử lý',
-      OrderStatus.confirmed => 'Đã xác nhận',
-      OrderStatus.completed => 'Hoàn tất',
-      OrderStatus.cancelled => 'Đã hủy',
+      OrderStatus.pending => 'Cho xu ly',
+      OrderStatus.pendingPayment => 'Cho thanh toan',
+      OrderStatus.paid => 'Da thanh toan',
+      OrderStatus.confirmed => 'Da xac nhan',
+      OrderStatus.completed => 'Hoan tat',
+      OrderStatus.paymentExpired => 'Het han thanh toan',
+      OrderStatus.cancelled => 'Da huy',
     };
   }
 }
@@ -36,37 +47,8 @@ class SimOrder {
   final DateTime createdAt;
   final String note;
 
-  Map<String, Object?> toJson() {
-    return {
-      'id': id,
-      'userId': userId,
-      'simId': simId,
-      'receiverName': receiverName,
-      'receiverPhone': receiverPhone,
-      'address': address,
-      'totalPrice': totalPrice,
-      'status': status.name == 'pending'
-          ? 'Pending'
-          : status.name == 'confirmed'
-              ? 'Confirmed'
-              : status.name == 'completed'
-                  ? 'Completed'
-                  : 'Cancelled',
-      'createdAt': createdAt.toIso8601String(),
-      'note': note,
-    };
-  }
-
   factory SimOrder.fromJson(Map<String, Object?> json) {
-    final statusStr = (json['status'] as String? ?? 'Pending').toLowerCase();
-    final status = switch (statusStr) {
-      'confirmed' => OrderStatus.confirmed,
-      'completed' => OrderStatus.completed,
-      'cancelled' => OrderStatus.cancelled,
-      _ => OrderStatus.pending,
-    };
-    final createdStr = json['createdAt'] as String?;
-    final createdAt = createdStr != null ? DateTime.parse(createdStr) : DateTime.now();
+    final statusName = json['status'] as String? ?? 'pending';
 
     return SimOrder(
       id: json['id'] as String? ?? '',
@@ -76,9 +58,28 @@ class SimOrder {
       receiverPhone: json['receiverPhone'] as String? ?? '',
       address: json['address'] as String? ?? '',
       totalPrice: (json['totalPrice'] as num? ?? 0).toInt(),
-      status: status,
-      createdAt: createdAt.toLocal(),
+      status: OrderStatus.values.firstWhere(
+        (status) => status.name.toLowerCase() == statusName.toLowerCase(),
+        orElse: () => OrderStatus.pending,
+      ),
+      createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '')?.toLocal() ??
+          DateTime.now(),
       note: json['note'] as String? ?? '',
     );
+  }
+
+  Map<String, Object?> toJson() {
+    return {
+      'id': id,
+      'userId': userId,
+      'simId': simId,
+      'receiverName': receiverName,
+      'receiverPhone': receiverPhone,
+      'address': address,
+      'totalPrice': totalPrice,
+      'status': status.name,
+      'createdAt': createdAt.toIso8601String(),
+      'note': note,
+    };
   }
 }

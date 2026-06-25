@@ -20,6 +20,7 @@ class _SimDetailScreenState extends State<SimDetailScreen> {
   void initState() {
     super.initState();
     _simService.addListener(_handleSimChanged);
+    _simService.fetchSims(force: true);
   }
 
   @override

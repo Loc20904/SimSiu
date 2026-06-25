@@ -1,4 +1,3 @@
-// ignore_for_file: use_build_context_synchronously
 import 'package:flutter/material.dart';
 
 import '../../core/app_theme.dart';
@@ -28,16 +27,16 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
   Color _getStatusColor(OrderStatus status) {
     return switch (status) {
       OrderStatus.pending => AppPalette.gold,
+      OrderStatus.pendingPayment => AppPalette.gold,
+      OrderStatus.paid => AppPalette.teal,
       OrderStatus.confirmed => AppPalette.blue,
       OrderStatus.completed => AppPalette.teal,
+      OrderStatus.paymentExpired => AppPalette.danger,
       OrderStatus.cancelled => AppPalette.danger,
     };
   }
 
   Future<void> _confirmCancelOrder(SimOrder order) async {
-    final navigator = Navigator.of(context);
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
-
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -58,36 +57,27 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
     );
 
     if (confirmed == true) {
-      if (!context.mounted) return;
-      // Hiển thị vòng chờ loading
-      showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
-
-      try {
-        await OrderService.instance.cancelOrder(order.id);
-        await SimService.instance.loadSims(); // Làm mới trạng thái sim ở các màn hình khác
-        
-        if (!mounted) return;
-        navigator.pop(); // Đóng vòng chờ loading
-
-        setState(() {});
-        scaffoldMessenger.showSnackBar(
-          SnackBar(
-            content: Text('Đã hủy đơn hàng ${order.id} thành công.'),
-            behavior: SnackBarBehavior.floating,
+      OrderService.instance.cancelOrder(order.id);
+      final sim = _findSim(order.simId);
+      if (sim != null && sim.status == SimStatus.sold) {
+        SimService.instance.updateSimLocal(
+          BeautifulSim(
+            id: sim.id,
+            phoneNumber: sim.phoneNumber,
+            carrier: sim.carrier,
+            type: sim.type,
+            price: sim.price,
+            meaning: sim.meaning,
+            status: SimStatus.available,
+            description: sim.description,
           ),
         );
-      } catch (e) {
-        if (!mounted) return;
-        navigator.pop(); // Đóng vòng chờ loading
-        scaffoldMessenger.showSnackBar(
+      }
+      setState(() {});
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Không thể hủy đơn hàng: $e'),
+            content: Text('Đã hủy đơn hàng ${order.id} thành công.'),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -260,7 +250,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                             Icons.access_time,
                             'Thời gian đặt: $formattedDate',
                           ),
-                          if (order.status == OrderStatus.pending) ...[
+                          if (order.status == OrderStatus.pending || order.status == OrderStatus.pendingPayment) ...[
                             const SizedBox(height: 14),
                             Align(
                               alignment: Alignment.centerRight,
@@ -311,3 +301,4 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
     );
   }
 }
+

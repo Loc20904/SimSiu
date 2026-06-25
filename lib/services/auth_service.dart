@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/app_user.dart';
@@ -45,8 +44,6 @@ class AuthService {
     final token = preferences.getString(_tokenKey);
     final savedUser = preferences.getString(_currentUserKey);
 
-    debugPrint('[AuthService] restoreSession - Đọc từ SP: token = ${token != null ? "Có (độ dài: ${token.length})" : "Không"}, savedUser = ${savedUser != null ? "Có" : "Không"}');
-
     if (token == null || savedUser == null) {
       _currentUser = null;
       _token = null;
@@ -60,9 +57,7 @@ class AuthService {
       _currentUser = user;
       _token = token;
       ApiClient.instance.setToken(token);
-      debugPrint('[AuthService] restoreSession - Thành công. User: ${user.fullName}, _token đã nạp: ${_token != null}');
-    } catch (e) {
-      debugPrint('[AuthService] restoreSession - LỖI parse JSON: $e');
+    } catch (_) {
       await preferences.remove(_currentUserKey);
       await preferences.remove(_tokenKey);
       _currentUser = null;
@@ -78,28 +73,14 @@ class AuthService {
     required String password,
   }) async {
     try {
-      final responseBody = await ApiClient.instance.post('/auth/signin', {
+      final response = await ApiClient.instance.post('/auth/signin', body: {
         'email': email.trim(),
         'password': password,
       });
 
-      final token = responseBody['token'] as String;
-      final userJson = responseBody['user'] as Map<String, dynamic>;
-      final user = AppUser.fromJson(Map<String, Object?>.from(userJson));
-
-      _currentUser = user;
-      
-      final preferences = await SharedPreferences.getInstance();
-      await preferences.setString(_tokenKey, token);
-      await preferences.setString(_currentUserKey, jsonEncode(user.toJson()));
-      
-      _token = token;
-      ApiClient.instance.setToken(token);
-      return user;
-    } on ApiException catch (e) {
-      throw AuthException(e.message);
-    } catch (e) {
-      throw AuthException('Đăng nhập thất bại: $e');
+      return _applyAuthResponse(Map<String, Object?>.from(response as Map));
+    } on ApiException catch (error) {
+      throw AuthException(error.message);
     }
   }
 
@@ -110,30 +91,16 @@ class AuthService {
     required String password,
   }) async {
     try {
-      final responseBody = await ApiClient.instance.post('/auth/register', {
+      final response = await ApiClient.instance.post('/auth/register', body: {
         'fullName': fullName.trim(),
         'email': email.trim().toLowerCase(),
         'phone': phone.trim(),
         'password': password,
       });
 
-      final token = responseBody['token'] as String;
-      final userJson = responseBody['user'] as Map<String, dynamic>;
-      final user = AppUser.fromJson(Map<String, Object?>.from(userJson));
-
-      _currentUser = user;
-
-      final preferences = await SharedPreferences.getInstance();
-      await preferences.setString(_tokenKey, token);
-      await preferences.setString(_currentUserKey, jsonEncode(user.toJson()));
-
-      _token = token;
-      ApiClient.instance.setToken(token);
-      return user;
-    } on ApiException catch (e) {
-      throw AuthException(e.message);
-    } catch (e) {
-      throw AuthException('Đăng ký thất bại: $e');
+      return _applyAuthResponse(Map<String, Object?>.from(response as Map));
+    } on ApiException catch (error) {
+      throw AuthException(error.message);
     }
   }
 
@@ -144,5 +111,27 @@ class AuthService {
     final preferences = await SharedPreferences.getInstance();
     await preferences.remove(_currentUserKey);
     await preferences.remove(_tokenKey);
+  }
+
+  Future<AppUser> _applyAuthResponse(Map<String, Object?> response) async {
+    final token = response['token'] as String?;
+    final userJson = response['user'];
+
+    if (token == null || userJson is! Map) {
+      throw const AuthException('Phan hoi dang nhap khong hop le.');
+    }
+
+    final user = AppUser.fromJson(Map<String, Object?>.from(userJson));
+    _currentUser = user;
+    _token = token;
+    ApiClient.instance.setToken(token);
+    await _saveSession(user, token);
+    return user;
+  }
+
+  Future<void> _saveSession(AppUser user, String token) async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString(_currentUserKey, jsonEncode(user.toJson()));
+    await preferences.setString(_tokenKey, token);
   }
 }
