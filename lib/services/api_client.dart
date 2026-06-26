@@ -131,6 +131,10 @@ class ApiClient {
       };
     }
 
+    if (path.startsWith('/payments/payos/pending')) {
+      return [];
+    }
+
     return null;
   }
 
