@@ -67,4 +67,12 @@ class PaymentService {
       requiresAuth: true,
     );
   }
+
+  Future<void> syncPendingPayOsPayments() async {
+    await ApiClient.instance.post(
+      '/payments/payos/sync-pending',
+      body: <String, Object?>{},
+      requiresAuth: true,
+    );
+  }
 }

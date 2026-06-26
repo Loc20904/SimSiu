@@ -490,8 +490,11 @@ class _SimListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isAvailable = sim.status == SimStatus.available;
-    final statusColor = isAvailable ? AppPalette.teal : AppPalette.danger;
+    final statusColor = switch (sim.status) {
+      SimStatus.available => AppPalette.teal,
+      SimStatus.reserved => AppPalette.gold,
+      SimStatus.sold => AppPalette.danger,
+    };
 
     return Card(
       child: InkWell(

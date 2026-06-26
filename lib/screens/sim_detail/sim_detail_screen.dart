@@ -64,7 +64,16 @@ class _SimDetailScreenState extends State<SimDetailScreen> {
     }
 
     final isAvailable = sim.status == SimStatus.available;
-    final statusColor = isAvailable ? AppPalette.teal : AppPalette.danger;
+    final statusColor = switch (sim.status) {
+      SimStatus.available => AppPalette.teal,
+      SimStatus.reserved => AppPalette.gold,
+      SimStatus.sold => AppPalette.danger,
+    };
+    final unavailableLabel = switch (sim.status) {
+      SimStatus.reserved => 'SIM đang chờ thanh toán',
+      SimStatus.sold => 'SIM đã được bán',
+      SimStatus.available => 'Đặt mua SIM',
+    };
 
     return Scaffold(
       appBar: AppBar(title: const Text('Chi tiết SIM')),
@@ -80,7 +89,7 @@ class _SimDetailScreenState extends State<SimDetailScreen> {
           icon: Icon(
             isAvailable ? Icons.shopping_bag_outlined : Icons.block_outlined,
           ),
-          label: Text(isAvailable ? 'Đặt mua SIM' : 'SIM đã được bán'),
+          label: Text(isAvailable ? 'Đặt mua SIM' : unavailableLabel),
         ),
       ),
       body: ListView(

@@ -28,20 +28,30 @@ class SimDepApp extends StatefulWidget {
   State<SimDepApp> createState() => _SimDepAppState();
 }
 
-class _SimDepAppState extends State<SimDepApp> {
+class _SimDepAppState extends State<SimDepApp> with WidgetsBindingObserver {
   final _navigatorKey = GlobalKey<NavigatorState>();
   StreamSubscription<Uri>? _linkSubscription;
+  var _isSyncingPendingPayments = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _listenForPaymentLinks();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _linkSubscription?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _syncPendingPayments();
+    }
   }
 
   void _listenForPaymentLinks() {
@@ -88,6 +98,22 @@ class _SimDepAppState extends State<SimDepApp> {
         AppRoutes.myOrders,
         (route) => route.settings.name == AppRoutes.home,
       );
+    }
+  }
+
+  Future<void> _syncPendingPayments() async {
+    if (_isSyncingPendingPayments) {
+      return;
+    }
+
+    _isSyncingPendingPayments = true;
+    try {
+      await PaymentService.instance.syncPendingPayOsPayments();
+      await SimService.instance.fetchSims(force: true);
+    } catch (_) {
+      // User may be logged out or offline; normal screens will fetch/cache data.
+    } finally {
+      _isSyncingPendingPayments = false;
     }
   }
 
