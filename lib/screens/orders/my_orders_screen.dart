@@ -31,7 +31,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted && _pendingPayments.isNotEmpty) {
         final hasExpired = _pendingPayments.any(
-          (payment) => !payment.expiredAt.isAfter(DateTime.now()),
+          (payment) => _isPendingPayment(payment) && !payment.expiredAt.isAfter(DateTime.now()),
         );
         if (hasExpired && !_isRefreshingData) {
           _refreshData();
@@ -101,6 +101,30 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
     final minutesPart = (seconds ~/ 60).toString().padLeft(2, '0');
     final secondsPart = (seconds % 60).toString().padLeft(2, '0');
     return '$minutesPart:$secondsPart';
+  }
+
+  bool _isPendingPayment(PendingPayOsPayment payment) {
+    return payment.status.toLowerCase() == 'pending';
+  }
+
+  String _paymentStatusLabel(PendingPayOsPayment payment) {
+    return switch (payment.status.toLowerCase()) {
+      'pending' => 'Cho thanh toan',
+      'expired' => 'Thanh toan qua han',
+      'cancelled' || 'canceled' => 'Da huy thanh toan',
+      'failed' => 'Thanh toan that bai',
+      _ => payment.status,
+    };
+  }
+
+  Color _paymentStatusColor(PendingPayOsPayment payment) {
+    return switch (payment.status.toLowerCase()) {
+      'pending' => AppPalette.gold,
+      'expired' => AppPalette.danger,
+      'cancelled' || 'canceled' => AppPalette.muted,
+      'failed' => AppPalette.danger,
+      _ => AppPalette.muted,
+    };
   }
 
   Future<void> _continuePayment(PendingPayOsPayment payment) async {
@@ -437,6 +461,8 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
 
   Widget _buildPendingPaymentCard(PendingPayOsPayment payment) {
     final sim = _findSim(payment.simId);
+    final isPending = _isPendingPayment(payment);
+    final statusColor = _paymentStatusColor(payment);
     final formattedDate =
         '${payment.createdAt.day.toString().padLeft(2, '0')}/${payment.createdAt.month.toString().padLeft(2, '0')}/${payment.createdAt.year} ${payment.createdAt.hour.toString().padLeft(2, '0')}:${payment.createdAt.minute.toString().padLeft(2, '0')}';
 
@@ -467,17 +493,17 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: AppPalette.gold.withValues(alpha: 0.12),
+                      color: statusColor.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(6),
                       border: Border.all(
-                        color: AppPalette.gold.withValues(alpha: 0.3),
+                        color: statusColor.withValues(alpha: 0.3),
                         width: 1,
                       ),
                     ),
-                    child: const Text(
-                      'Cho thanh toan',
+                    child: Text(
+                      _paymentStatusLabel(payment),
                       style: TextStyle(
-                        color: AppPalette.gold,
+                        color: statusColor,
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                       ),
@@ -491,12 +517,12 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: AppPalette.gold.withValues(alpha: 0.12),
+                      color: statusColor.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(6),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.pending_actions_outlined,
-                      color: AppPalette.gold,
+                      color: statusColor,
                       size: 20,
                     ),
                   ),
@@ -526,10 +552,10 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                   ),
                   Text(
                     formatCurrency(payment.amount),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 15,
-                      color: AppPalette.gold,
+                      color: statusColor,
                     ),
                   ),
                 ],
@@ -539,7 +565,9 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
               const SizedBox(height: 6),
               _buildDetailRow(
                 Icons.timer_outlined,
-                'Con lai: ${_formatRemaining(payment)}',
+                isPending
+                    ? 'Con lai: ${_formatRemaining(payment)}'
+                    : 'Trang thai: ${_paymentStatusLabel(payment)}',
               ),
               const SizedBox(height: 4),
               _buildDetailRow(
@@ -557,33 +585,35 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
               ],
               const SizedBox(height: 4),
               _buildDetailRow(Icons.access_time, 'Thoi gian tao: $formattedDate'),
-              const SizedBox(height: 14),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  OutlinedButton(
-                    onPressed: () => _confirmCancelPayment(payment),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppPalette.danger,
-                      side: const BorderSide(color: AppPalette.danger),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                      minimumSize: Size.zero,
+              if (isPending) ...[
+                const SizedBox(height: 14),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    OutlinedButton(
+                      onPressed: () => _confirmCancelPayment(payment),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppPalette.danger,
+                        side: const BorderSide(color: AppPalette.danger),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        minimumSize: Size.zero,
+                      ),
+                      child: const Text('Huy'),
                     ),
-                    child: const Text('Huy'),
-                  ),
-                  const SizedBox(width: 8),
-                  FilledButton(
-                    onPressed: payment.checkoutUrl.isEmpty
-                        ? null
-                        : () => _continuePayment(payment),
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                      minimumSize: Size.zero,
+                    const SizedBox(width: 8),
+                    FilledButton(
+                      onPressed: payment.checkoutUrl.isEmpty
+                          ? null
+                          : () => _continuePayment(payment),
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        minimumSize: Size.zero,
+                      ),
+                      child: const Text('Thanh toan tiep'),
                     ),
-                    child: const Text('Thanh toan tiep'),
-                  ),
-                ],
-              ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),
