@@ -62,6 +62,10 @@ class PendingPayOsPayment {
   final int remainingSeconds;
 
   factory PendingPayOsPayment.fromJson(Map<String, Object?> json) {
+    final remainingSeconds = (json['remainingSeconds'] as num? ?? 0).toInt();
+    final parsedExpiredAt = DateTime.tryParse(json['expiredAt'] as String? ?? '')?.toLocal() ??
+        DateTime.now();
+
     return PendingPayOsPayment(
       id: json['id'] as String? ?? '',
       userId: json['userId'] as String? ?? '',
@@ -77,9 +81,10 @@ class PendingPayOsPayment {
       status: json['status'] as String? ?? 'Pending',
       createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '')?.toLocal() ??
           DateTime.now(),
-      expiredAt: DateTime.tryParse(json['expiredAt'] as String? ?? '')?.toLocal() ??
-          DateTime.now(),
-      remainingSeconds: (json['remainingSeconds'] as num? ?? 0).toInt(),
+      expiredAt: remainingSeconds > 0
+          ? DateTime.now().add(Duration(seconds: remainingSeconds))
+          : parsedExpiredAt,
+      remainingSeconds: remainingSeconds,
     );
   }
 }
